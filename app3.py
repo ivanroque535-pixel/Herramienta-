@@ -44,7 +44,9 @@ with col1:
     
     nombre_circuito = st.text_input("Nombre del Circuito:", "Circuito 1")
     tipo_carga = st.radio("Unidad de la Carga:", ["Watts (W)", "Volt-Amperes (VA)"], horizontal=True)
-    carga = st.number_input("Valor de la Carga Eléctrica:", min_value=0.0, value=1000.0, step=100.0)
+    
+    # Cambio 1: Se especifica Carga Nominal en el input
+    carga = st.number_input("Valor de la Carga Nominal:", min_value=0.0, value=1000.0, step=100.0)
     
     if tipo_carga == "Watts (W)":
         fp = st.number_input("Factor de Potencia (FP):", min_value=0.1, max_value=1.0, value=0.95)
@@ -105,9 +107,11 @@ with col1:
             str_e = "N/A"
 
         # 3. Guardar en Memoria
+        # Cambio 2: Se agregó "Carga Nominal" y la columna "In (A)"
         nuevo_circuito = {
             "Nombre": nombre_circuito,
-            "Carga": f"{carga} {'W' if tipo_carga == 'Watts (W)' else 'VA'}",
+            "Carga Nominal": f"{carga} {'W' if tipo_carga == 'Watts (W)' else 'VA'}",
+            "In (A)": round(corriente_nominal, 2),
             "Id (A)": round(corriente_diseno, 2),
             "ITM Sugerido": itm_completo,
             "Calibre": calibre_awg,
@@ -136,17 +140,21 @@ with col2:
             "Monofásico (127 V)", "Bifásico (220 V)", "Trifásico (220 V)", "Trifásico (440 V)"
         ])
         
+        # Cambio 3: Sumamos la In Total y la mostramos
+        suma_corriente_nominal = sum(c["In (A)"] for c in st.session_state.circuitos)
         suma_corriente_diseno = sum(c["Id (A)"] for c in st.session_state.circuitos)
+        
         capacidad_principal = calcular_capacidad_itm(suma_corriente_diseno)
         polos_principal = obtener_polos(sistema_principal)
         
         itm_principal = f"{capacidad_principal} A ({polos_principal})"
         calibre_principal = obtener_calibre_awg(suma_corriente_diseno)
         
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Carga Total (Id)", f"{suma_corriente_diseno:.2f} A")
-        m2.metric("Interruptor Gral.", itm_principal)
-        m3.metric("Calibre Troncal", calibre_principal)
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("In Total", f"{suma_corriente_nominal:.2f} A")
+        m2.metric("Id Total", f"{suma_corriente_diseno:.2f} A")
+        m3.metric("Interruptor Gral.", itm_principal)
+        m4.metric("Calibre Troncal", calibre_principal)
         
     else:
         st.info("Agrega circuitos en el panel izquierdo para calcular el interruptor principal.")
