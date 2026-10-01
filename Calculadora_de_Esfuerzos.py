@@ -1,33 +1,15 @@
 import numpy as np
+import streamlit as st
 
+st.set_page_config(
+    page_title="Mecánica del Medio Continuo",
+    layout="wide",
+)
 
-def solicitar_matriz_3x3(nombre: str) -> np.ndarray:
-    """Solicita al usuario los componentes de una matriz 3x3 simétrica."""
-    print(f"\n--- Ingrese los componentes del {nombre} ---")
-    s_xx = float(input("σ_xx: "))
-    t_xy = float(input("τ_xy: "))
-    t_xz = float(input("τ_xz: "))
-
-    s_yy = float(input("σ_yy: "))
-    t_yz = float(input("τ_yz: "))
-
-    s_zz = float(input("σ_zz: "))
-
-    return np.array([[s_xx, t_xy, t_xz], [t_xy, s_yy, t_yz], [t_xz, t_yz, s_zz]])
-
-
-def solicitar_vector_3d(nombre: str) -> np.ndarray:
-    """Solicita al usuario las componentes de un vector 3D."""
-    print(f"\n--- Ingrese las componentes del {nombre} ---")
-    nx = float(input("n_x: "))
-    ny = float(input("n_y: "))
-    nz = float(input("n_z: "))
-
-    return np.array([nx, ny, nz], dtype=float)
+st.title("⚡ Calculadora de Esfuerzos - Medio Continuo")
 
 
 def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
-    # 1. Normalización del vector de entrada
     norma_n = np.linalg.norm(n_raw)
     if norma_n == 0:
         raise ValueError(
@@ -35,31 +17,23 @@ def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
         )
     n = n_raw / norma_n
 
-    # 2. Vector de tracción (t = σ · n)
+    # Vector de tracción y esfuerzos en el plano
     t_vec = np.dot(sigma, n)
-
-    # 3. Esfuerzo normal (σ_n = t · n)
     sigma_n = np.dot(t_vec, n)
-
-    # 4. Esfuerzo cortante (τ_n = sqrt(||t||² - σ_n²))
     norma_t_cuadrado = np.dot(t_vec, t_vec)
     tau_n = np.sqrt(max(0.0, norma_t_cuadrado - sigma_n**2))
 
-    # 5. Invariantes estándar del tensor de esfuerzos
+    # Invariantes originales
     I1_orig = np.trace(sigma)
-
-    # Fórmula correcta del segundo invariante I2:
     I2_orig = (
-        (sigma[0, 0] * sigma[1, 1] + sigma[1, 1] * sigma[2, 2] + sigma[0, 0] * sigma[2, 2])
-        - (sigma[0, 1] ** 2 + sigma[1, 2] ** 2 + sigma[0, 2] ** 2)
-    )
-
+        sigma[0, 0] * sigma[1, 1]
+        + sigma[1, 1] * sigma[2, 2]
+        + sigma[0, 0] * sigma[2, 2]
+    ) - (sigma[0, 1] ** 2 + sigma[1, 2] ** 2 + sigma[0, 2] ** 2)
     I3_orig = np.linalg.det(sigma)
 
-    # 6. Esfuerzos Principales y Direcciones Principales
+    # Esfuerzos y direcciones principales
     e_vals, e_vecs = np.linalg.eigh(sigma)
-
-    # Ordenar de mayor a menor (σ1 >= σ2 >= σ3)
     idx = np.argsort(e_vals)[::-1]
     e_vals = e_vals[idx]
     e_vecs = e_vecs[:, idx]
@@ -67,11 +41,9 @@ def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
     sigma_1, sigma_2, sigma_3 = e_vals
     n_1, n_2, n_3 = e_vecs[:, 0], e_vecs[:, 1], e_vecs[:, 2]
 
-    # 7. Recálculo de Invariantes usando los Esfuerzos Principales
+    # Invariantes con esfuerzos principales
     I1_princ = sigma_1 + sigma_2 + sigma_3
-    I2_princ = (
-        sigma_1 * sigma_2 + sigma_2 * sigma_3 + sigma_1 * sigma_3
-    )
+    I2_princ = sigma_1 * sigma_2 + sigma_2 * sigma_3 + sigma_1 * sigma_3
     I3_princ = sigma_1 * sigma_2 * sigma_3
 
     return {
@@ -87,51 +59,74 @@ def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
     }
 
 
-if __name__ == "__main__":
-    print("==================================================")
-    print(" CALCULADORA DE MECÁNICA DEL MEDIO CONTINUO")
-    print("==================================================")
+# --- ENTRADAS EN LA BARRA LATERAL ---
+st.sidebar.header("📥 Entrada de Datos")
 
-    tensor_sigma = solicitar_matriz_3x3("Tensor de Esfuerzos [σ]")
-    vector_n = solicitar_vector_3d("Vector Normal [n]")
+st.sidebar.subheader("Tensor de Esfuerzos [σ]")
+c1, c2, c3 = st.sidebar.columns(3)
+s_xx = c1.number_input("σ_xx", value=10.0)
+t_xy = c2.number_input("τ_xy", value=5.0)
+t_xz = c3.number_input("τ_xz", value=0.0)
 
+s_yy = c2.number_input("σ_yy", value=-2.0)
+t_yz = c3.number_input("τ_yz", value=2.0)
+
+s_zz = c3.number_input("σ_zz", value=4.0)
+
+tensor_sigma = np.array(
+    [[s_xx, t_xy, t_xz], [t_xy, s_yy, t_yz], [t_xz, t_yz, s_zz]]
+)
+
+st.sidebar.subheader("Vector Normal [n]")
+nx = st.sidebar.number_input("n_x", value=1.0)
+ny = st.sidebar.number_input("n_y", value=1.0)
+nz = st.sidebar.number_input("n_z", value=1.0)
+vector_n = np.array([nx, ny, nz], dtype=float)
+
+# --- CÁLCULO Y VISUALIZACIÓN ---
+if st.sidebar.button("Calcular Esfuerzos", type="primary"):
     try:
         res = calcular_mecanica_continuo(tensor_sigma, vector_n)
 
-        print("\n" + "=" * 50)
-        print(" RESULTADOS ")
-        print("=" * 50)
+        col_left, col_right = st.columns(2)
 
-        print("\n--- ENTRADAS PROCESADAS ---")
-        print("Tensor de Esfuerzos [σ]:")
-        print(tensor_sigma)
-        print(f"Vector Unitario n: {res['n_unitario']}")
+        with col_left:
+            st.subheader("📋 Datos Procesados")
+            st.write("**Tensor [σ]:**")
+            st.write(tensor_sigma)
+            st.write(f"**Vector Unitario n:** `{res['n_unitario']}`")
 
-        print("\n--- ESFUERZOS EN EL PLANO ---")
-        print(f"Vector Tracción t  : {res['t_vec']}")
-        print(f"Esfuerzo Normal σ_n: {res['sigma_n']:.6f}")
-        print(f"Esfuerzo Cortante τ: {res['tau_n']:.6f}")
+            st.subheader("🎯 Esfuerzos en el Plano")
+            st.write(
+                f"**Vector Tracción t:** `[{res['t_vec'][0]:.4f}, {res['t_vec'][1]:.4f}, {res['t_vec'][2]:.4f}]`"
+            )
+            st.metric("Esfuerzo Normal (σ_n)", f"{res['sigma_n']:.6f}")
+            st.metric("Esfuerzo Cortante (τ_n)", f"{res['tau_n']:.6f}")
 
-        print("\n--- ESFUERZOS Y DIRECCIONES PRINCIPALES ---")
-        s1, s2, s3 = res["esfuerzos_principales"]
-        n1, n2, n3 = res["direcciones_principales"]
-        print(f"σ1 = {s1:.6f} | n1 = {n1}")
-        print(f"σ2 = {s2:.6f} | n2 = {n2}")
-        print(f"σ3 = {s3:.6f} | n3 = {n3}")
+        with col_right:
+            st.subheader("👑 Esfuerzos y Direcciones Principales")
+            s1, s2, s3 = res["esfuerzos_principales"]
+            n1, n2, n3 = res["direcciones_principales"]
 
-        print("\n--- COMPROBACIÓN DE INVARIANTES ---")
+            st.write(f"**σ₁:** `{s1:.6f}`")
+            st.caption(f"Dirección n₁: `[{n1[0]:.4f}, {n1[1]:.4f}, {n1[2]:.4f}]`")
+
+            st.write(f"**σ₂:** `{s2:.6f}`")
+            st.caption(f"Dirección n₂: `[{n2[0]:.4f}, {n2[1]:.4f}, {n2[2]:.4f}]`")
+
+            st.write(f"**σ₃:** `{s3:.6f}`")
+            st.caption(f"Dirección n₃: `[{n3[0]:.4f}, {n3[1]:.4f}, {n3[2]:.4f}]`")
+
+        st.divider()
+
+        st.subheader("🔍 Comprobación de Invariantes")
         I1_o, I2_o, I3_o = res["invariantes_original"]
         I1_p, I2_p, I3_p = res["invariantes_principales"]
 
-        print(
-            f"I1: Tensor = {I1_o:.6f} | Principales = {I1_p:.6f} | Diff = {abs(I1_o - I1_p):.2e}"
-        )
-        print(
-            f"I2: Tensor = {I2_o:.6f} | Principales = {I2_p:.6f} | Diff = {abs(I2_o - I2_p):.2e}"
-        )
-        print(
-            f"I3: Tensor = {I3_o:.6f} | Principales = {I3_p:.6f} | Diff = {abs(I3_o - I3_p):.2e}"
-        )
+        ic1, ic2, ic3 = st.columns(3)
+        ic1.metric("I₁ (Tensor)", f"{I1_o:.6f}", delta=f"Diff: {abs(I1_o-I1_p):.1e}")
+        ic2.metric("I₂ (Tensor)", f"{I2_o:.6f}", delta=f"Diff: {abs(I2_o-I2_p):.1e}")
+        ic3.metric("I₃ (Tensor)", f"{I3_o:.6f}", delta=f"Diff: {abs(I3_o-I3_p):.1e}")
 
-    except ValueError as e:
-        print(f"\n[Error]: {e}")
+    except ValueError as err:
+        st.error(str(err))
