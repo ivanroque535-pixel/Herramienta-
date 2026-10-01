@@ -64,17 +64,17 @@ st.sidebar.header("📥 Entrada de Datos")
 
 st.sidebar.subheader("Tensor de Esfuerzos [σ]")
 c1, c2, c3 = st.sidebar.columns(3)
-s_11 = c1.number_input("σ_xx", value=0.0, format="%.4f")
-t_12 = c2.number_input("τ_xy", value=0.0, format="%.4f")
-t_13 = c3.number_input("τ_xz", value=0.0, format="%.4f")
+s_xx = c1.number_input("σ_1,1", value=0.0, format="%.4f")
+t_xy = c2.number_input("τ_1,2", value=0.0, format="%.4f")
+t_xz = c3.number_input("τ_1,3", value=0.0, format="%.4f")
 
-s_22 = c2.number_input("σ_yy", value=0.0, format="%.4f")
-t_23 = c3.number_input("τ_yz", value=0.0, format="%.4f")
+s_yy = c2.number_input("σ_2,2", value=0.0, format="%.4f")
+t_yz = c3.number_input("τ_2,3", value=0.0, format="%.4f")
 
-s_33 = c3.number_input("σ_zz", value=0.0, format="%.4f")
+s_zz = c3.number_input("σ_3,3", value=0.0, format="%.4f")
 
 tensor_sigma = np.array(
-    [[s_11, t_12, t_13], [t_12, s_22, t_23], [t_13, t_23, s_33]]
+    [[s_xx, t_xy, t_xz], [t_xy, s_yy, t_yz], [t_xz, t_yz, s_zz]]
 )
 
 st.sidebar.subheader("Vector Unitario [n]")
