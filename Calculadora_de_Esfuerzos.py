@@ -64,23 +64,23 @@ st.sidebar.header("📥 Entrada de Datos")
 
 st.sidebar.subheader("Tensor de Esfuerzos [σ]")
 c1, c2, c3 = st.sidebar.columns(3)
-s_xx = c1.number_input("σ_xx", value=10.0)
-t_xy = c2.number_input("τ_xy", value=5.0)
-t_xz = c3.number_input("τ_xz", value=0.0)
+s_xx = c1.number_input("σ_xx", value=0.0, format="%.4f")
+t_xy = c2.number_input("τ_xy", value=0.0, format="%.4f")
+t_xz = c3.number_input("τ_xz", value=0.0, format="%.4f")
 
-s_yy = c2.number_input("σ_yy", value=-2.0)
-t_yz = c3.number_input("τ_yz", value=2.0)
+s_yy = c2.number_input("σ_yy", value=0.0, format="%.4f")
+t_yz = c3.number_input("τ_yz", value=0.0, format="%.4f")
 
-s_zz = c3.number_input("σ_zz", value=4.0)
+s_zz = c3.number_input("σ_zz", value=0.0, format="%.4f")
 
 tensor_sigma = np.array(
     [[s_xx, t_xy, t_xz], [t_xy, s_yy, t_yz], [t_xz, t_yz, s_zz]]
 )
 
 st.sidebar.subheader("Vector Normal [n]")
-nx = st.sidebar.number_input("n_x", value=1.0)
-ny = st.sidebar.number_input("n_y", value=1.0)
-nz = st.sidebar.number_input("n_z", value=1.0)
+nx = st.sidebar.number_input("n_x", value=0.0, format="%.4f", step=1)
+ny = st.sidebar.number_input("n_y", value=0.0, format="%.4f", step=1)
+nz = st.sidebar.number_input("n_z", value=0.0, format="%.4f", step=1)
 vector_n = np.array([nx, ny, nz], dtype=float)
 
 # --- CÁLCULO Y VISUALIZACIÓN ---
