@@ -78,9 +78,9 @@ tensor_sigma = np.array(
 )
 
 st.sidebar.subheader("Vector Normal [n]")
-nx = st.sidebar.number_input("n_x", value=0.0, format="%.4f", step=1)
-ny = st.sidebar.number_input("n_y", value=0.0, format="%.4f", step=1)
-nz = st.sidebar.number_input("n_z", value=0.0, format="%.4f", step=1)
+nx = st.sidebar.number_input("n_x", value=0.0, format="%.4f")
+ny = st.sidebar.number_input("n_y", value=0.0, format="%.4f")
+nz = st.sidebar.number_input("n_z", value=0.0, format="%.4f")
 vector_n = np.array([nx, ny, nz], dtype=float)
 
 # --- CÁLCULO Y VISUALIZACIÓN ---
