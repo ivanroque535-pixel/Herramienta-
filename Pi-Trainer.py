@@ -1,4 +1,5 @@
 import streamlit as st
+from st_keyup import st_keyup
 
 # Los 500 primeros decimales exactos de Pi
 pi_500 = (
@@ -14,58 +15,56 @@ pi_500 = (
     "07446237996274956735188575272489122793818301194912"
 )
 
-st.title("🧠 Entrenador de Pi: Nivel Titán")
-st.write("Ingresa cada dígito uno por uno. El sistema solo te dejará avanzar si es correcto.")
+st.set_page_config(page_title="Escáner Pi", layout="centered")
 
-# Inicializar la "memoria" de la aplicación
+# Inicializar la "memoria" RAM de la aplicación
 if 'posicion' not in st.session_state:
     st.session_state.posicion = 0
     st.session_state.secuencia = ""
     st.session_state.error = False
+    st.session_state.llave_reinicio = 0  # Clave maestra para vaciar la caja de texto
 
-# Función que se ejecuta cada vez que presionas Enter en la caja de texto
-def verificar_digito():
-    intento = st.session_state.input_digito.strip()
-    
-    # Ignorar si está vacío
-    if not intento:
-        return
-        
-    digito_real = pi_500[st.session_state.posicion]
-    
-    if intento == digito_real:
-        st.session_state.posicion += 1
-        st.session_state.secuencia += intento
-        st.session_state.error = False
-    else:
-        st.session_state.error = True
-        
-    # Limpiar la caja de texto automáticamente para el siguiente número
-    st.session_state.input_digito = ""
+st.title("🧠 Entrenador de Pi: Fuego Rápido")
 
-# Interfaz principal
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="Posición Actual", value=st.session_state.posicion + 1)
-with col2:
-    st.metric(label="Dígitos Perfectos", value=st.session_state.posicion)
+# --- BARRA DE PROGRESO LÍQUIDA ---
+porcentaje_float = st.session_state.posicion / 500.0
+porcentaje_texto = porcentaje_float * 100
+st.progress(porcentaje_float, text=f"Progreso: {st.session_state.posicion} de 500 decimales ({porcentaje_texto:.1f}%)")
 
+# Pantalla principal con tu recorrido
 st.text_area("Tu Secuencia Lograda:", value="3." + st.session_state.secuencia, height=150, disabled=True)
 
-# Mensaje de error condicional
+# Alerta de error
 if st.session_state.error:
-    st.error("❌ ERROR DE CONEXIÓN. Ese no es el número correcto.")
+    st.error("❌ ANOMALÍA DETECTADA. Ese no es el número. Tu procesador falló, corrígelo.")
 
-# Caja de entrada (llama a la función verificar_digito al presionar Enter)
-st.text_input("Ingresa el siguiente dígito y presiona Enter:", 
-              key="input_digito", 
-              on_change=verificar_digito)
+# --- ENTRADA AUTOMÁTICA (SIN ENTER) ---
+if st.session_state.posicion < 500:
+    st.write("Teclea el siguiente dígito:")
+    
+    # Generamos un ID único para la caja cada vez. Esto fuerza a Streamlit a borrarla al instante.
+    id_caja = f"caja_texto_{st.session_state.llave_reinicio}"
+    
+    # st_keyup lee la tecla en el milisegundo en que la presionas
+    intento = st_keyup("", key=id_caja, max_chars=1)
 
-# Celebración por bloques
-if st.session_state.posicion > 0 and st.session_state.posicion % 10 == 0 and not st.session_state.error:
-    st.success(f"🔥 ¡Bloque completado! Llevas {st.session_state.posicion} dígitos perfectos.")
+    if intento:
+        digito_real = pi_500[st.session_state.posicion]
+        
+        if intento == digito_real:
+            st.session_state.posicion += 1
+            st.session_state.secuencia += intento
+            st.session_state.error = False
+            st.session_state.llave_reinicio += 1  # Destruye y recrea la caja vacía
+            st.rerun()  # Recarga la app a velocidad luz
+        else:
+            st.session_state.error = True
+            st.session_state.llave_reinicio += 1  # Destruye la caja errónea
+            st.rerun()
 
-# Victoria final
+# --- VICTORIAS Y CELEBRACIONES ---
 if st.session_state.posicion == 500:
     st.balloons()
-    st.success("🏆 ¡HAZAÑA COMPLETADA! Has dominado los 500 dígitos.")
+    st.success("🏆 ¡SISTEMA COMPLETADO! Has dominado los 500 dígitos como una supercomputadora.")
+elif st.session_state.posicion > 0 and st.session_state.posicion % 10 == 0 and not st.session_state.error:
+    st.success(f"🔥 ¡Bloque completado! La memoria muscular está al 100%.")
