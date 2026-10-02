@@ -1,5 +1,6 @@
 import streamlit as st
 from st_keyup import st_keyup
+import streamlit.components.v1 as components
 
 # Los 500 primeros decimales exactos de Pi
 pi_500 = (
@@ -46,7 +47,7 @@ if st.session_state.posicion < 500:
     id_caja = f"caja_texto_{st.session_state.llave_reinicio}"
     
     # st_keyup lee la tecla en el milisegundo en que la presionas
-    intento = st_keyup("", key=id_caja, max_chars=1, autofocus=True)
+    intento = st_keyup("", key=id_caja, max_chars=1)
 
     if intento:
         digito_real = pi_500[st.session_state.posicion]
@@ -68,3 +69,17 @@ if st.session_state.posicion == 500:
     st.success("🏆 ¡SISTEMA COMPLETADO! Has dominado los 500 dígitos como una supercomputadora.")
 elif st.session_state.posicion > 0 and st.session_state.posicion % 10 == 0 and not st.session_state.error:
     st.success(f"🔥 ¡Bloque completado! La memoria muscular está al 100%.")
+
+# --- HACK PARA MANTENER EL CURSOR EN LA CAJA ---
+components.html(
+    """
+    <script>
+    const doc = window.parent.document;
+    const inputs = doc.querySelectorAll('input');
+    if (inputs.length > 0) {
+        inputs[0].focus();
+    }
+    </script>
+    """,
+    height=0
+)
