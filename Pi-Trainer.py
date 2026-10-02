@@ -46,7 +46,7 @@ if st.session_state.posicion < 500:
     id_caja = f"caja_texto_{st.session_state.llave_reinicio}"
     
     # st_keyup lee la tecla en el milisegundo en que la presionas
-    intento = st_keyup("", key=id_caja, max_chars=1)
+    intento = st_keyup("", key=id_caja, max_chars=1, autofocus=True)
 
     if intento:
         digito_real = pi_500[st.session_state.posicion]
