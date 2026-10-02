@@ -1,6 +1,5 @@
 import streamlit as st
 from st_keyup import st_keyup
-import streamlit.components.v1 as components
 
 # Los 500 primeros decimales exactos de Pi
 pi_500 = (
@@ -17,69 +16,43 @@ pi_500 = (
 )
 
 st.set_page_config(page_title="Escáner Pi", layout="centered")
-
-# Inicializar la "memoria" RAM de la aplicación
-if 'posicion' not in st.session_state:
-    st.session_state.posicion = 0
-    st.session_state.secuencia = ""
-    st.session_state.error = False
-    st.session_state.llave_reinicio = 0  # Clave maestra para vaciar la caja de texto
-
 st.title("🧠 Entrenador de Pi: Fuego Rápido")
+st.write("Escribe los números de corrido sin presionar Enter. Si te equivocas, usa tu tecla de borrar (Backspace).")
 
-# --- BARRA DE PROGRESO LÍQUIDA ---
-porcentaje_float = st.session_state.posicion / 500.0
-porcentaje_texto = porcentaje_float * 100
-st.progress(porcentaje_float, text=f"Progreso: {st.session_state.posicion} de 500 decimales ({porcentaje_texto:.1f}%)")
+# La caja de entrada mágica (nunca se destruye, por lo que nunca pierdes el cursor)
+intento = st_keyup("Secuencia (inicia en 1415...):", key="entrada_continua")
 
-# Pantalla principal con tu recorrido
-st.text_area("Tu Secuencia Lograda:", value="3." + st.session_state.secuencia, height=150, disabled=True)
+# Lógica de escaneo en tiempo real
+posicion_actual = 0
+error = False
 
-# Alerta de error
-if st.session_state.error:
-    st.error("❌ ANOMALÍA DETECTADA. Ese no es el número. Tu procesador falló, corrígelo.")
-
-# --- ENTRADA AUTOMÁTICA (SIN ENTER) ---
-if st.session_state.posicion < 500:
-    st.write("Teclea el siguiente dígito:")
+if intento:
+    # Quitamos espacios por si escribes en bloques
+    intento_limpio = intento.replace(" ", "")
     
-    # Generamos un ID único para la caja cada vez. Esto fuerza a Streamlit a borrarla al instante.
-    id_caja = f"caja_texto_{st.session_state.llave_reinicio}"
-    
-    # st_keyup lee la tecla en el milisegundo en que la presionas
-    intento = st_keyup("", key=id_caja, max_chars=1)
+    # Comprobamos si tu secuencia coincide exactamente con el mapa
+    if pi_500.startswith(intento_limpio):
+        posicion_actual = len(intento_limpio)
+    else:
+        error = True
+        # Calculamos hasta dónde ibas bien antes del error
+        for i in range(len(intento_limpio)):
+            if i < len(pi_500) and intento_limpio[i] == pi_500[i]:
+                posicion_actual += 1
+            else:
+                break
 
-    if intento:
-        digito_real = pi_500[st.session_state.posicion]
-        
-        if intento == digito_real:
-            st.session_state.posicion += 1
-            st.session_state.secuencia += intento
-            st.session_state.error = False
-            st.session_state.llave_reinicio += 1  # Destruye y recrea la caja vacía
-            st.rerun()  # Recarga la app a velocidad luz
-        else:
-            st.session_state.error = True
-            st.session_state.llave_reinicio += 1  # Destruye la caja errónea
-            st.rerun()
+# Interfaz visual
+if error:
+    st.error("❌ ANOMALÍA DETECTADA. El último número es incorrecto. ¡Presiona borrar para corregirlo!")
+else:
+    if posicion_actual > 0 and posicion_actual % 10 == 0:
+        st.success(f"🔥 ¡Bloque completado! Llevas {posicion_actual} números.")
 
-# --- VICTORIAS Y CELEBRACIONES ---
-if st.session_state.posicion == 500:
+# Barra de progreso
+porcentaje_float = min(posicion_actual / 500.0, 1.0)
+st.progress(porcentaje_float, text=f"Progreso: {posicion_actual} de 500 decimales ({porcentaje_float * 100:.1f}%)")
+
+if posicion_actual >= 500:
     st.balloons()
-    st.success("🏆 ¡SISTEMA COMPLETADO! Has dominado los 500 dígitos como una supercomputadora.")
-elif st.session_state.posicion > 0 and st.session_state.posicion % 10 == 0 and not st.session_state.error:
-    st.success(f"🔥 ¡Bloque completado! La memoria muscular está al 100%.")
-
-# --- HACK PARA MANTENER EL CURSOR EN LA CAJA ---
-components.html(
-    """
-    <script>
-    const doc = window.parent.document;
-    const inputs = doc.querySelectorAll('input');
-    if (inputs.length > 0) {
-        inputs[0].focus();
-    }
-    </script>
-    """,
-    height=0
-)
+    st.success("🏆 ¡SISTEMA COMPLETADO! Has logrado los 500 perfectos.")
