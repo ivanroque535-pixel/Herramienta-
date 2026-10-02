@@ -16,38 +16,53 @@ pi_500 = (
 )
 
 st.set_page_config(page_title="Escáner Pi", layout="centered")
-st.title("🧠 Entrenador de Pi: Fuego Rápido")
-st.write("Escribe los números de corrido sin presionar Enter. Si te equivocas, usa tu tecla de borrar (Backspace).")
+st.title("🧠 Entrenador de Pi: Nivel Alienígena")
+st.write("Teclea sin detenerte. El radar superior organizará tu memoria en bloques de 10.")
 
-# La caja de entrada mágica (nunca se destruye, por lo que nunca pierdes el cursor)
-intento = st_keyup("Secuencia (inicia en 1415...):", key="entrada_continua")
-
-# Lógica de escaneo en tiempo real
+# Lógica principal y variables de rastreo
 posicion_actual = 0
 error = False
+secuencia_correcta = ""
+
+# La entrada de texto que nunca pierde el foco
+intento = st_keyup("Radar de tecleo:", key="entrada_continua")
 
 if intento:
-    # Quitamos espacios por si escribes en bloques
+    # Quitamos espacios manuales por si se te escapa alguno
     intento_limpio = intento.replace(" ", "")
     
-    # Comprobamos si tu secuencia coincide exactamente con el mapa
     if pi_500.startswith(intento_limpio):
         posicion_actual = len(intento_limpio)
+        secuencia_correcta = intento_limpio
     else:
         error = True
-        # Calculamos hasta dónde ibas bien antes del error
+        # Calculamos los números buenos antes del choque
         for i in range(len(intento_limpio)):
             if i < len(pi_500) and intento_limpio[i] == pi_500[i]:
                 posicion_actual += 1
+                secuencia_correcta += intento_limpio[i]
             else:
                 break
 
-# Interfaz visual
+# --- EL TRUCO MAGISTRAL: Formateo de 10 en 10 ---
+# Cortamos tu cadena correcta en pedazos de 10 y los unimos con un espacio
+secuencia_formateada = " ".join([secuencia_correcta[i:i+10] for i in range(0, len(secuencia_correcta), 10)])
+
+# Proyectamos la secuencia formateada en pantalla gigante
+st.markdown("### Memoria Consolidada:")
+st.markdown(
+    f"<h2 style='color: #4CAF50; font-family: monospace; letter-spacing: 2px; word-wrap: break-word;'>3.{secuencia_formateada}</h2>", 
+    unsafe_allow_html=True
+)
+
+st.divider() # Línea divisoria para separar el visor del progreso
+
+# Sistema de alertas
 if error:
     st.error("❌ ANOMALÍA DETECTADA. El último número es incorrecto. ¡Presiona borrar para corregirlo!")
 else:
     if posicion_actual > 0 and posicion_actual % 10 == 0:
-        st.success(f"🔥 ¡Bloque completado! Llevas {posicion_actual} números.")
+        st.success(f"🔥 ¡Bloque de 10 sellado! Llevas {posicion_actual} decimales puros.")
 
 # Barra de progreso
 porcentaje_float = min(posicion_actual / 500.0, 1.0)
@@ -55,4 +70,4 @@ st.progress(porcentaje_float, text=f"Progreso: {posicion_actual} de 500 decimale
 
 if posicion_actual >= 500:
     st.balloons()
-    st.success("🏆 ¡SISTEMA COMPLETADO! Has logrado los 500 perfectos.")
+    st.success("🏆 ¡CONEXIÓN TOTAL! Has plasmado los 500 dígitos perfectos.")
