@@ -27,6 +27,8 @@ if "secuencia_maestra" not in st.session_state:
     st.session_state.secuencia_maestra = ""
 if "puntos_debiles" not in st.session_state:
     st.session_state.puntos_debiles = set()
+if "llave_reinicio" not in st.session_state:
+    st.session_state.llave_reinicio = 0  # Control de destrucción del radar
 
 # --- FUNCIONES DEL TECLADO MÓVIL ---
 def teclear(num):
@@ -35,6 +37,7 @@ def borrar():
     st.session_state.secuencia_maestra = st.session_state.secuencia_maestra[:-1]
 def limpiar():
     st.session_state.secuencia_maestra = ""
+    st.session_state.llave_reinicio += 1
 
 # --- PANEL DESPLEGABLE (MÓVIL) ---
 with st.expander("📱 Abrir Teclado Numérico en Pantalla", expanded=False):
@@ -55,8 +58,9 @@ with st.expander("📱 Abrir Teclado Numérico en Pantalla", expanded=False):
         st.button("9", on_click=teclear, args=(9,), use_container_width=True)
         st.button("Limpiar", on_click=limpiar, use_container_width=True)
 
-# --- RADAR DE TECLEO ---
-intento = st_keyup("Radar de tecleo:", value=st.session_state.secuencia_maestra, key="entrada_continua")
+# --- RADAR DE TECLEO (CON LLAVE ROTATIVA) ---
+id_caja = f"entrada_continua_{st.session_state.llave_reinicio}"
+intento = st_keyup("Radar de tecleo:", value=st.session_state.secuencia_maestra, key=id_caja)
 
 if intento is not None and intento != st.session_state.secuencia_maestra:
     st.session_state.secuencia_maestra = intento
@@ -79,14 +83,15 @@ else:
         else:
             break
             
-    # Registrar la posición exacta del error (sin duplicados)
+    # Registrar la posición exacta del error
     posicion_falla = posicion_actual + 1
     st.session_state.puntos_debiles.add(posicion_falla)
 
-    # Castigo del Modo Extremo
+    # --- CASTIGO DEL MODO EXTREMO ---
     if modo_extremo:
         st.toast("💀 ¡SECUENCIA DESTRUIDA! Un error te costó todo el progreso.", icon="☠️")
         st.session_state.secuencia_maestra = ""
+        st.session_state.llave_reinicio += 1  # Destruye y reinicia la caja visualmente
         st.rerun()
 
 # --- CAJA CONSOLIDADA OSCURA ---
