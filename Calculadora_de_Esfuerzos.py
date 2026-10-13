@@ -29,7 +29,7 @@ def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
         sigma[0, 0] * sigma[1, 1]
         + sigma[1, 1] * sigma[2, 2]
         + sigma[0, 0] * sigma[2, 2]
-    ) - (sigma[0, 1] ** 2 + sigma[1, 2] ** 2 + sigma[0, 2] ** 2)
+    ) - (sigma[0, 1] ** 2 + sigma[1, 2] ** 2 + sigma[2, 0] ** 2)
     I3_orig = np.linalg.det(sigma)
 
     # Esfuerzos y direcciones principales
