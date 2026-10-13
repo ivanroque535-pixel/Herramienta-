@@ -40,6 +40,13 @@ def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
 
     sigma_1, sigma_2, sigma_3 = e_vals
     n_1, n_2, n_3 = e_vecs[:, 0], e_vecs[:, 1], e_vecs[:, 2]
+    
+    # CÁLCULO DE ÁNGULOS EN GRADOS RESPECTO A LOS EJES X, Y, Z
+    # np.clip evita errores numéricos fuera del rango [-1, 1]
+    angulos_1 = np.degrees(np.arccos(np.clip(n_1, -1.0, 1.0)))
+    angulos_2 = np.degrees(np.arccos(np.clip(n_2, -1.0, 1.0)))
+    angulos_3 = np.degrees(np.arccos(np.clip(n_3, -1.0, 1.0)))
+
 
     # Invariantes con esfuerzos principales
     I1_princ = sigma_1 + sigma_2 + sigma_3
@@ -54,6 +61,11 @@ def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
         "tau_n": tau_n,
         "esfuerzos_principales": (sigma_1, sigma_2, sigma_3),
         "direcciones_principales": (n_1, n_2, n_3),
+        "angulos_principales": (
+            angulos_1,
+            angulos_2,
+            angulos_3,
+        ),
         "invariantes_original": (I1_orig, I2_orig, I3_orig),
         "invariantes_principales": (I1_princ, I2_princ, I3_princ),
     }
