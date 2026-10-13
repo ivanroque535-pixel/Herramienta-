@@ -122,15 +122,15 @@ if st.sidebar.button("Calcular Esfuerzos", type="primary"):
 
             st.write(f"**σ₁:** `{s1:.6f}`")
             st.caption(f"Dirección n₁: `[{n1[0]:.4f}, {n1[1]:.4f}, {n1[2]:.4f}]`")
-            st.caption(f"Angulo : `[angulos_1]`")
+            st.caption(f"Angulo : `[{angulos_1}]`")
       
             st.write(f"**σ₂:** `{s2:.6f}`")
             st.caption(f"Dirección n₂: `[{n2[0]:.4f}, {n2[1]:.4f}, {n2[2]:.4f}]`")
-            st.caption(f"Angulo : `[angulos_2]`")
+            st.caption(f"Angulo : `[{angulos_2}]`")
 
             st.write(f"**σ₃:** `{s3:.6f}`")
             st.caption(f"Dirección n₃: `[{n3[0]:.4f}, {n3[1]:.4f}, {n3[2]:.4f}]`")
-            st.caption(f"Angulo : `[angulos_3]`")
+            st.caption(f"Angulo : `[{angulos_3}]`")
 
         st.divider()
 
