@@ -10,12 +10,12 @@ st.title("⚡ Calculadora de Esfuerzos - Medio Continuo")
 
 
 def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
+    n = n_raw
     norma_n = np.linalg.norm(n_raw)
     if norma_n == 0:
         raise ValueError(
             "El vector normal no puede ser el vector nulo (0,0,0)."
         )
-    n = n_raw / norma_n
 
     # Vector de tracción y esfuerzos en el plano
     t_vec = np.dot(sigma, n)
