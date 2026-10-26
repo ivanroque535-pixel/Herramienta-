@@ -1,148 +1,116 @@
 import numpy as np
 import streamlit as st
 
+# ==========================================
+# CONFIGURACIÓN DE LA PÁGINA
+# ==========================================
 st.set_page_config(
-    page_title="Mecánica del Medio Continuo",
+    page_title="Mecánica del Medio Continuo | Criterios de Falla",
     layout="wide",
 )
 
-st.title("⚡ Calculadora de Esfuerzos - Medio Continuo")
+st.title("🏗️ Calculadora de Esfuerzos y Criterios de Falla")
+st.markdown("Evaluación de materiales dúctiles y geomateriales mediante tensores 3x3.")
 
-
-def calcular_mecanica_continuo(sigma: np.ndarray, n_raw: np.ndarray):
-    n = n_raw
-    norma_n = np.linalg.norm(n_raw)
-    if norma_n == 0:
-        raise ValueError(
-            "El vector normal no puede ser el vector nulo (0,0,0)."
-        )
-
-    # Vector de tracción y esfuerzos en el plano
-    t_vec = np.dot(sigma, n)
-    sigma_n = np.dot(t_vec, n)
-    norma_t_cuadrado = np.dot(t_vec, t_vec)
-    tau_n = np.sqrt(max(0.0, norma_t_cuadrado - sigma_n**2))
-
-    # Invariantes originales
-    I1_orig = np.trace(sigma)
-    I2_orig = (
-        sigma[0, 0] * sigma[1, 1]
-        + sigma[1, 1] * sigma[2, 2]
-        + sigma[0, 0] * sigma[2, 2]
-    ) - (sigma[0, 1] ** 2 + sigma[1, 2] ** 2 + sigma[2, 0] ** 2)
-    I3_orig = np.linalg.det(sigma)
-
-    # Esfuerzos y direcciones principales
-    e_vals, e_vecs = np.linalg.eigh(sigma)
-    idx = np.argsort(e_vals)[::-1]
-    e_vals = e_vals[idx]
-    e_vecs = e_vecs[:, idx]
-
-    sigma_1, sigma_2, sigma_3 = e_vals
-    n_1, n_2, n_3 = e_vecs[:, 0], e_vecs[:, 1], e_vecs[:, 2]
+# ==========================================
+# FUNCIONES DE VALIDACIÓN Y FÍSICA
+# ==========================================
+def validar_estado_fisico(tensor: np.ndarray, sigma_y: float, phi: float) -> list:
+    """
+    Evalúa la coherencia física y matemática de las entradas antes de calcular.
+    Retorna una lista de errores. Si la lista está vacía, el sistema es válido.
+    """
+    errores = []
     
-    # CÁLCULO DE ÁNGULOS EN GRADOS RESPECTO A LOS EJES X, Y, Z
-    # np.clip evita errores numéricos fuera del rango [-1, 1]
-    angulos_1 = np.degrees(np.arccos(np.clip(n_1, -1.0, 1.0)))
-    angulos_2 = np.degrees(np.arccos(np.clip(n_2, -1.0, 1.0)))
-    angulos_3 = np.degrees(np.arccos(np.clip(n_3, -1.0, 1.0)))
+    # 1. Conservación del Momento Angular (Simetría del Tensor de Cauchy)
+    # Comparamos la matriz con su transpuesta. np.allclose maneja errores de punto flotante.
+    if not np.allclose(tensor, tensor.T, atol=1e-5):
+        errores.append("Física inválida: El tensor de esfuerzos debe ser estrictamente simétrico (τ_ij = τ_ji).")
+        
+    # 2. Límite de fluencia positivo
+    # El esfuerzo de fluencia es una magnitud escalar de capacidad resistente, no puede ser nula ni negativa.
+    if sigma_y <= 0:
+        errores.append("Material inválido: El límite de fluencia (σ_y) debe ser mayor a 0.")
+        
+    # 3. Restricciones del ángulo de fricción interna (Mohr-Coulomb / Drucker-Prager)
+    # Físicamente, un material no puede tener un ángulo de fricción negativo, ni llegar a 90°.
+    if not (0 <= phi < 90):
+        errores.append("Geomaterial inválido: El ángulo de fricción (φ) debe estar en el intervalo [0°, 90°).")
+        
+    return errores
 
-
-    # Invariantes con esfuerzos principales
-    I1_princ = sigma_1 + sigma_2 + sigma_3
-    I2_princ = sigma_1 * sigma_2 + sigma_2 * sigma_3 + sigma_1 * sigma_3
-    I3_princ = sigma_1 * sigma_2 * sigma_3
-
-    return {
-        "n_unitario": n,
-        "norma_original": norma_n,
-        "t_vec": t_vec,
-        "sigma_n": sigma_n,
-        "tau_n": tau_n,
-        "esfuerzos_principales": (sigma_1, sigma_2, sigma_3),
-        "direcciones_principales": (n_1, n_2, n_3),
-        "angulos_principales": (
-            angulos_1,
-            angulos_2,
-            angulos_3,
-        ),
-        "invariantes_original": (I1_orig, I2_orig, I3_orig),
-        "invariantes_principales": (I1_princ, I2_princ, I3_princ),
-    }
-
-
-# --- ENTRADAS EN LA BARRA LATERAL ---
-st.sidebar.header("📥 Entrada de Datos")
-
-st.sidebar.subheader("Tensor de Esfuerzos [σ]")
-c1, c2, c3 = st.sidebar.columns(3)
-s_xx = c1.number_input("σ_1,1", value=0.0, format="%.4f")
-t_xy = c2.number_input("τ_1,2", value=0.0, format="%.4f")
-t_xz = c3.number_input("τ_1,3", value=0.0, format="%.4f")
-
-s_yy = c2.number_input("σ_2,2", value=0.0, format="%.4f")
-t_yz = c3.number_input("τ_2,3", value=0.0, format="%.4f")
-
-s_zz = c3.number_input("σ_3,3", value=0.0, format="%.4f")
-
-tensor_sigma = np.array(
-    [[s_xx, t_xy, t_xz], [t_xy, s_yy, t_yz], [t_xz, t_yz, s_zz]]
+# ==========================================
+# INTERFAZ DE USUARIO: BARRA LATERAL (INPUTS)
+# ==========================================
+st.sidebar.header("1. Convención de Signos")
+# La rúbrica exige permitir elegir la convención, pero matemáticamente procesaremos todo
+# como Tensión Positiva en el backend para estandarizar las fórmulas de invariantes.
+convencion = st.sidebar.radio(
+    "Seleccione la convención positiva:", 
+    ["Tensión (+)", "Compresión (+)"]
 )
 
-st.sidebar.subheader("Vector Unitario [n]")
-nx = st.sidebar.number_input("n_x", value=0.0, format="%.4f")
-ny = st.sidebar.number_input("n_y", value=0.0, format="%.4f")
-nz = st.sidebar.number_input("n_z", value=0.0, format="%.4f")
-vector_n = np.array([nx, ny, nz], dtype=float)
+st.sidebar.header("2. Tensor de Esfuerzos")
+st.sidebar.caption("Ingrese las componentes (matriz simétrica):")
+c1, c2, c3 = st.sidebar.columns(3)
 
-# --- CÁLCULO Y VISUALIZACIÓN ---
-if st.sidebar.button("Calcular Esfuerzos", type="primary"):
-    try:
-        res = calcular_mecanica_continuo(tensor_sigma, vector_n)
+# Solicitamos los datos. Note que tau_xy y tau_yx usan la misma variable para forzar 
+# un poco la simetría visualmente, pero igual solicitamos la matriz completa.
+s_xx = c1.number_input("σ_xx", value=160.0, format="%.2f")
+t_xy = c2.number_input("τ_xy", value=70.0, format="%.2f")
+t_xz = c3.number_input("τ_xz", value=0.0, format="%.2f")
 
-        col_left, col_right = st.columns(2)
+t_yx = c1.number_input("τ_yx", value=70.0, format="%.2f") # Usualmente = τ_xy
+s_yy = c2.number_input("σ_yy", value=0.0, format="%.2f")
+t_yz = c3.number_input("τ_yz", value=0.0, format="%.2f")
 
-        with col_left:
-            st.subheader("📋 Datos Procesados")
-            st.write("**Tensor [σ]:**")
-            st.write(tensor_sigma)
-            st.write(f"**Vector Unitario n:** `{res['n_unitario']}`")
+t_zx = c1.number_input("τ_zx", value=0.0, format="%.2f") # Usualmente = τ_xz
+t_zy = c2.number_input("τ_zy", value=0.0, format="%.2f") # Usualmente = τ_yz
+s_zz = c3.number_input("σ_zz", value=0.0, format="%.2f")
 
-            st.subheader("🎯 Esfuerzos en el Plano")
-            st.write(
-                f"**Vector Tracción t:** `[{res['t_vec'][0]:.4f}, {res['t_vec'][1]:.4f}, {res['t_vec'][2]:.4f}]`"
-            )
-            st.metric("Esfuerzo Normal (σ_n)", f"{res['sigma_n']:.6f}")
-            st.metric("Esfuerzo Cortante (τ_n)", f"{res['tau_n']:.6f}")
+# Construcción del tensor original del usuario
+tensor_input = np.array([
+    [s_xx, t_xy, t_xz],
+    [t_yx, s_yy, t_yz],
+    [t_zx, t_zy, s_zz]
+])
 
-        with col_right:
-            st.subheader("👑 Esfuerzos y Direcciones Principales")
-            s1, s2, s3 = res["esfuerzos_principales"]
-            n1, n2, n3 = res["direcciones_principales"]
-            a1, a2, a3 = res["angulos_principales"] 
+st.sidebar.header("3. Parámetros del Material")
+# Parámetro para materiales dúctiles (Acero)
+sigma_y = st.sidebar.number_input("Límite de fluencia (σ_y) [Ej: MPa]", value=250.0, format="%.2f")
 
-            st.write(f"**σ₁:** `{s1:.6f}`")
-            st.caption(f"Dirección n₁: `[{n1[0]:.4f}, {n1[1]:.4f}, {n1[2]:.4f}]`")
-            st.caption(f"Angulo : `{a1}` ")
-      
-            st.write(f"**σ₂:** `{s2:.6f}`")
-            st.caption(f"Dirección n₂: `[{n2[0]:.4f}, {n2[1]:.4f}, {n2[2]:.4f}]`")
-            st.caption(f"Angulo : `{a2}` ")
+# Parámetros para Geomateriales (Suelos/Rocas)
+c_coh = st.sidebar.number_input("Cohesión (c) [Ej: kPa o MPa]", value=0.0, format="%.2f")
+phi = st.sidebar.number_input("Ángulo de fricción (φ) [Grados]", value=30.0, min_value=0.0, max_value=89.9, format="%.2f")
 
-            st.write(f"**σ₃:** `{s3:.6f}`")
-            st.caption(f"Dirección n₃: `[{n3[0]:.4f}, {n3[1]:.4f}, {n3[2]:.4f}]`")
-            st.caption(f"Angulo : `{a3}` ")
-
-        st.divider()
-
-        st.subheader("🔍 Comprobación de Invariantes")
-        I1_o, I2_o, I3_o = res["invariantes_original"]
-        I1_p, I2_p, I3_p = res["invariantes_principales"]
-
-        ic1, ic2, ic3 = st.columns(3)
-        ic1.metric("I₁ (Tensor)", f"{I1_o:.6f}", delta=f"Diff: {abs(I1_o-I1_p):.1e}")
-        ic2.metric("I₂ (Tensor)", f"{I2_o:.6f}", delta=f"Diff: {abs(I2_o-I2_p):.1e}")
-        ic3.metric("I₃ (Tensor)", f"{I3_o:.6f}", delta=f"Diff: {abs(I3_o-I3_p):.1e}")
-
-    except ValueError as err:
-        st.error(str(err))
+# ==========================================
+# MOTOR DE EJECUCIÓN PRINCIPAL
+# ==========================================
+if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
+    
+    # 1. Validar entradas Físicas
+    lista_errores = validar_estado_fisico(tensor_input, sigma_y, phi)
+    
+    if len(lista_errores) > 0:
+        st.error("🚨 **Error en las entradas detectado:**")
+        for error in lista_errores:
+            st.warning(error)
+        st.stop() # Detiene la ejecución del script aquí si hay errores
+        
+    st.success("✅ Validaciones superadas: Tensor simétrico y parámetros de material lógicos.")
+    
+    # 2. Conversión al Backend (Unificación a Tensión Positiva)
+    # La rúbrica establece que la app trabaja internamente con Tensión Positiva.
+    # Si el usuario eligió Compresión +, multiplicamos el tensor por -1.
+    if convencion == "Compresión (+)":
+        tensor_backend = tensor_input * -1.0
+        st.info("ℹ️ Convención elegida: **Compresión (+)**. El tensor ha sido invertido internamente para el cálculo.")
+    else:
+        tensor_backend = tensor_input
+        st.info("ℹ️ Convención elegida: **Tensión (+)**.")
+        
+    # Mostrar el tensor que se usará para los cálculos
+    st.write("### Tensor Operativo (Backend: Tensión +)")
+    st.write(tensor_backend)
+    
+    # NOTA: En los siguientes módulos programaremos a partir de 'tensor_backend'.
