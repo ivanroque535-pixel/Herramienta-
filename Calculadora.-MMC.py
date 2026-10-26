@@ -192,11 +192,11 @@ st.sidebar.header("2. Tensor de Esfuerzos")
 st.sidebar.caption("Ingrese las componentes (matriz simétrica):")
 c1, c2, c3 = st.sidebar.columns(3)
 
-s_xx = c1.number_input("σ_xx", value=160.0, format="%.2f")
-t_xy = c2.number_input("τ_xy", value=70.0, format="%.2f")
+s_xx = c1.number_input("σ_xx", value=0.0, format="%.2f")
+t_xy = c2.number_input("τ_xy", value=0.0, format="%.2f")
 t_xz = c3.number_input("τ_xz", value=0.0, format="%.2f")
 
-t_yx = c1.number_input("τ_yx", value=70.0, format="%.2f")
+t_yx = c1.number_input("τ_yx", value=0.0, format="%.2f")
 s_yy = c2.number_input("σ_yy", value=0.0, format="%.2f")
 t_yz = c3.number_input("τ_yz", value=0.0, format="%.2f")
 
@@ -220,10 +220,10 @@ tipo_material = st.sidebar.radio(
 sigma_y, c_coh, phi = 0.0, 0.0, 0.0
 
 if tipo_material == "Acero (Dúctil)":
-    sigma_y = st.sidebar.number_input("Límite de fluencia (σ_y) [Ej: MPa]", value=250.0, format="%.2f")
+    sigma_y = st.sidebar.number_input("Límite de fluencia (σ_y) [Ej: MPa]", value=0.0, format="%.2f")
 else:
-    c_coh = st.sidebar.number_input("Cohesión (c) [Ej: kPa o MPa]", value=18.0, format="%.2f")
-    phi = st.sidebar.number_input("Ángulo de fricción (φ) [Grados]", value=28.0, min_value=0.0, max_value=89.9, format="%.2f")
+    c_coh = st.sidebar.number_input("Cohesión (c) [Ej: kPa o MPa]", value=0.0, format="%.2f")
+    phi = st.sidebar.number_input("Ángulo de fricción (φ) [Grados]", value=0.0, min_value=0.0, max_value=89.9, format="%.2f")
 
 # ==========================================
 # MOTOR DE EJECUCIÓN PRINCIPAL
