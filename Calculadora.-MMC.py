@@ -1,5 +1,7 @@
 import numpy as np
 import streamlit as st
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA
@@ -179,6 +181,90 @@ def evaluar_criterios_geomateriales(sigma_1_t: float, sigma_3_t: float, I1: floa
         "dp_fs": fs_dp,
         "hay_tension": hay_tension
     }
+
+def plot_criterios_ductiles(s1: float, s2: float, sigma_y: float):
+    """
+    Genera el Hexágono de Tresca y la Elipse de von Mises en esfuerzo plano.
+    Dibuja el punto del estado actual de esfuerzos.
+    """
+    fig, ax = plt.subplots(figsize=(6, 6))
+    
+    # 1. Hexágono de Tresca
+    tresca_x = [sigma_y, sigma_y, 0, -sigma_y, -sigma_y, 0, sigma_y]
+    tresca_y = [0, sigma_y, sigma_y, 0, -sigma_y, -sigma_y, 0]
+    ax.plot(tresca_x, tresca_y, 'b-', label='Tresca', linewidth=2)
+    
+    # 2. Elipse de von Mises (Ecuación paramétrica)
+    theta = np.linspace(0, 2 * np.pi, 100)
+    r = sigma_y / np.sqrt(1 - np.sin(theta) * np.cos(theta))
+    vm_x = r * np.cos(theta)
+    vm_y = r * np.sin(theta)
+    ax.plot(vm_x, vm_y, 'r--', label='von Mises', linewidth=2)
+    
+    # 3. Punto de Estado Actual
+    ax.plot(s1, s2, 'ko', label='Estado (σ₁, σ₂)', markersize=8, zorder=5)
+    
+    # Formato del gráfico
+    ax.set_aspect('equal', 'box')
+    ax.set_title("Criterios de Falla en Esfuerzo Plano")
+    ax.set_xlabel("Esfuerzo Principal, σ₁")
+    ax.set_ylabel("Esfuerzo Principal, σ₂")
+    ax.axhline(0, color='black', linewidth=1)
+    ax.axvline(0, color='black', linewidth=1)
+    ax.grid(True, linestyle=':', alpha=0.6)
+    
+    limite = max(sigma_y, abs(s1), abs(s2)) * 1.5
+    ax.set_xlim(-limite, limite)
+    ax.set_ylim(-limite, limite)
+    ax.legend(loc='upper right')
+    
+    return fig
+
+def plot_circulos_mohr(s1, s2, s3, c_coh=0, phi_deg=0, graficar_envolvente=False):
+    """
+    Genera los tres círculos de Mohr.
+    Dibuja la envolvente de Mohr-Coulomb si es un geomaterial.
+    """
+    fig, ax = plt.subplots(figsize=(8, 4))
+    
+    esfuerzos = sorted([s1, s2, s3], reverse=True)
+    sig1, sig2, sig3 = esfuerzos
+
+    # Cálculos de Centros y Radios
+    C1, R1 = (sig1 + sig3) / 2.0, abs(sig1 - sig3) / 2.0
+    C2, R2 = (sig1 + sig2) / 2.0, abs(sig1 - sig2) / 2.0
+    C3, R3 = (sig2 + sig3) / 2.0, abs(sig2 - sig3) / 2.0
+
+    # Dibujo de Círculos
+    ax.add_patch(patches.Circle((C1, 0), R1, color='blue', fill=False, linewidth=1.5, label='Círculo Principal'))
+    ax.add_patch(patches.Circle((C2, 0), R2, color='green', fill=False, linewidth=1.5))
+    ax.add_patch(patches.Circle((C3, 0), R3, color='orange', fill=False, linewidth=1.5))
+
+    # Envolvente de Falla (Mohr-Coulomb)
+    if graficar_envolvente:
+        phi_rad = np.radians(phi_deg)
+        # Extendemos un poco la línea visualmente
+        sigma_vals = np.linspace(min(sig3, 0) - R1, max(sig1, 0) + R1, 100)
+        tau_vals = c_coh + sigma_vals * np.tan(phi_rad)
+        
+        ax.plot(sigma_vals, tau_vals, color='red', linestyle='-', linewidth=2, label='Envolvente M-C')
+        ax.plot(sigma_vals, -tau_vals, color='red', linestyle='-', linewidth=2)
+
+    # Formato
+    ax.set_aspect('equal', 'box')
+    ax.set_title("Círculos de Mohr en 3D")
+    ax.set_xlabel("Esfuerzo Normal, σ")
+    ax.set_ylabel("Esfuerzo Cortante, τ")
+    ax.axhline(0, color='black', linewidth=1)
+    ax.axvline(0, color='black', linewidth=1)
+    ax.grid(True, linestyle=':', alpha=0.6)
+    
+    margen = R1 * 0.3 if R1 > 0 else max(10, c_coh)
+    ax.set_xlim(min(sig3, 0) - margen, max(sig1, 0) + margen)
+    ax.set_ylim(-(R1 + margen), R1 + margen)
+    ax.legend(loc="upper right")
+    
+    return fig
 # ==========================================
 # INTERFAZ DE USUARIO: BARRA LATERAL (INPUTS)
 # ==========================================
@@ -349,6 +435,9 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
             ],
             "Veredicto": [str_veredicto(fs_t), str_veredicto(fs_v)]
         })
+        st.header("📈 Representación Gráfica")
+        fig_ductil = plot_criterios_ductiles(disp_s1, disp_s2, sigma_y)
+        st.pyplot(fig_ductil)
 
     elif tipo_material == "Geomaterial (Suelo/Roca)":
         # --- MÓDULO 4: EVALUACIÓN DE GEOMATERIALES ---
@@ -395,3 +484,8 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
             ],
             "Veredicto": [str_veredicto(fs_m), str_veredicto(fs_d)]
         })
+        st.header("📈 Representación Gráfica")
+        fig_mohr = plot_circulos_mohr(disp_s1, disp_s2, disp_s3, c_coh, phi, graficar_envolvente=True)
+        st.pyplot(fig_mohr)
+
+
