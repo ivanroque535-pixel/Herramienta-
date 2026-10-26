@@ -77,6 +77,43 @@ def calcular_estado_esfuerzos(tensor: np.ndarray) -> dict:
         "cortantes": (tau_max, tau_oct)
     }
 
+def evaluar_criterios_ductiles(sigma_1: float, sigma_3: float, J2: float, sigma_y: float) -> dict:
+    """
+    Evalúa los criterios de falla para materiales dúctiles (Tresca y von Mises).
+    Físicamente, asume que la falla ocurre por esfuerzo cortante o energía de distorsión.
+    """
+    # ==========================================
+    # 1. CRITERIO DE TRESCA (Esfuerzo Cortante Máximo)
+    # ==========================================
+    # Físicamente: La falla ocurre cuando el esfuerzo cortante máximo
+    # alcanza el esfuerzo cortante de fluencia.
+    q_tresca = sigma_1 - sigma_3 # Diferencia principal[cite: 8]
+    
+    # Validación Rúbrica: Estado hidrostático
+    if np.isclose(q_tresca, 0.0, atol=1e-6):
+        fs_tresca = float('inf') # FS infinito sin error de división[cite: 6]
+    else:
+        fs_tresca = sigma_y / q_tresca #[cite: 8]
+        
+    # ==========================================
+    # 2. CRITERIO DE VON MISES (Energía de Distorsión Máxima)
+    # ==========================================
+    # Físicamente: La falla ocurre cuando la energía de distorsión
+    # alcanza la del ensayo de tensión uniaxial.
+    sigma_vm = np.sqrt(3.0 * J2) # Esfuerzo equivalente de von Mises[cite: 8]
+    
+    # Validación Rúbrica: Estado hidrostático (J2 = 0)[cite: 6]
+    if np.isclose(J2, 0.0, atol=1e-6) or np.isclose(sigma_vm, 0.0, atol=1e-6):
+        fs_vm = float('inf') #[cite: 6]
+    else:
+        fs_vm = sigma_y / sigma_vm #[cite: 8]
+        
+    return {
+        "tresca_q": q_tresca,
+        "tresca_fs": fs_tresca,
+        "vm_sigma": sigma_vm,
+        "vm_fs": fs_vm
+    }
 # ==========================================
 # INTERFAZ DE USUARIO: BARRA LATERAL (INPUTS)
 # ==========================================
@@ -179,4 +216,44 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
     st.write(f"**Cortante Máximo (τ_max):** `{estado['cortantes'][0]:.2f}`")
     st.write(f"**Cortante Octaédrico (τ_oct):** `{estado['cortantes'][1]:.2f}`")
 
+    st.divider()
+
+# --- MÓDULO 3: EVALUACIÓN DE MATERIALES DÚCTILES ---
+    st.header("⚙️ Criterios de Falla: Materiales Dúctiles (Acero)")
+    
+    # Extraemos variables necesarias del Módulo 2
+    s1 = estado['principales'][0]
+    s3 = estado['principales'][2]
+    j2 = estado['invariantes_J'][0]
+    
+    # Ejecutamos el motor de falla dúctil
+    res_ductil = evaluar_criterios_ductiles(s1, s3, j2, sigma_y)
+    
+    col_t, col_v = st.columns(2)
+    
+    with col_t:
+        st.subheader("Hexágono de Tresca")
+        st.write(f"**Esfuerzo equivalente (σ₁ - σ₃):** `{res_ductil['tresca_q']:.2f}` MPa") #[cite: 6]
+        
+        # Formateo visual del FS
+        fs_t = res_ductil['tresca_fs']
+        if fs_t == float('inf'):
+            st.success("**FS Tresca:** `∞` (Estado Hidrostático)") #[cite: 6]
+        elif fs_t >= 1.0:
+            st.success(f"**FS Tresca:** `{fs_t:.3f}` (Resiste)")
+        else:
+            st.error(f"**FS Tresca:** `{fs_t:.3f}` (Falla)")
+            
+    with col_v:
+        st.subheader("Elipse de von Mises")
+        st.write(f"**Esfuerzo equivalente (σ_vm):** `{res_ductil['vm_sigma']:.2f}` MPa") #[cite: 6]
+        
+        fs_v = res_ductil['vm_fs']
+        if fs_v == float('inf'):
+            st.success("**FS von Mises:** `∞` (Estado Hidrostático)") #[cite: 6]
+        elif fs_v >= 1.0:
+            st.success(f"**FS von Mises:** `{fs_v:.3f}` (Resiste)")
+        else:
+            st.error(f"**FS von Mises:** `{fs_v:.3f}` (Falla)")
+            
     st.divider()
