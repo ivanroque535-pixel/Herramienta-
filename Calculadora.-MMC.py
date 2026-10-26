@@ -253,29 +253,52 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
     estado = calcular_estado_esfuerzos(tensor_backend)
     
     st.header("📊 Análisis del Estado de Esfuerzos")
+    
+    # ---------------------------------------------------------
+    # TRADUCCIÓN VISUAL A LA CONVENCIÓN DEL USUARIO[cite: 8]
+    # ---------------------------------------------------------
+    if convencion == "Compresión (+)":
+        # En compresión +, el mayor esfuerzo compresivo (positivo) viene del σ3 del backend (tensión)
+        disp_s1 = -estado['principales'][2]
+        disp_s2 = -estado['principales'][1]
+        disp_s3 = -estado['principales'][0]
+        
+        disp_n1 = estado['direcciones'][2]
+        disp_n2 = estado['direcciones'][1]
+        disp_n3 = estado['direcciones'][0]
+        
+        disp_I1 = -estado['invariantes_I'][0]
+        disp_I2 = estado['invariantes_I'][1]  # I2 no cambia de signo al invertir el tensor
+        disp_I3 = -estado['invariantes_I'][2]
+    else:
+        disp_s1, disp_s2, disp_s3 = estado['principales']
+        disp_n1, disp_n2, disp_n3 = estado['direcciones']
+        disp_I1, disp_I2, disp_I3 = estado['invariantes_I']
+        
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.subheader("Esfuerzos Principales")
-        st.write(f"**σ₁:** `{estado['principales'][0]:.2f}`")
-        st.caption(f"Dir n₁: `[{estado['direcciones'][0][0]:.3f}, {estado['direcciones'][0][1]:.3f}, {estado['direcciones'][0][2]:.3f}]`")
+        st.write(f"**σ₁:** `{disp_s1:.2f}`")
+        st.caption(f"Dir n₁: `[{disp_n1[0]:.3f}, {disp_n1[1]:.3f}, {disp_n1[2]:.3f}]`")
         
-        st.write(f"**σ₂:** `{estado['principales'][1]:.2f}`")
-        st.caption(f"Dir n₂: `[{estado['direcciones'][1][0]:.3f}, {estado['direcciones'][1][1]:.3f}, {estado['direcciones'][1][2]:.3f}]`")
+        st.write(f"**σ₂:** `{disp_s2:.2f}`")
+        st.caption(f"Dir n₂: `[{disp_n2[0]:.3f}, {disp_n2[1]:.3f}, {disp_n2[2]:.3f}]`")
         
-        st.write(f"**σ₃:** `{estado['principales'][2]:.2f}`")
-        st.caption(f"Dir n₃: `[{estado['direcciones'][2][0]:.3f}, {estado['direcciones'][2][1]:.3f}, {estado['direcciones'][2][2]:.3f}]`")
+        st.write(f"**σ₃:** `{disp_s3:.2f}`")
+        st.caption(f"Dir n₃: `[{disp_n3[0]:.3f}, {disp_n3[1]:.3f}, {disp_n3[2]:.3f}]`")
         
     with col2:
         st.subheader("Invariantes (Globales)")
-        st.write(f"**I₁:** `{estado['invariantes_I'][0]:.2f}`")
-        st.write(f"**I₂:** `{estado['invariantes_I'][1]:.2f}`")
-        st.write(f"**I₃:** `{estado['invariantes_I'][2]:.2f}`")
+        st.write(f"**I₁:** `{disp_I1:.2f}`")
+        st.write(f"**I₂:** `{disp_I2:.2f}`")
+        st.write(f"**I₃:** `{disp_I3:.2f}`")
         
     with col3:
         st.subheader("Invariantes (Desviadores)")
         st.write(f"**J₂:** `{estado['invariantes_J'][0]:.2f}`")
         st.write(f"**J₃:** `{estado['invariantes_J'][1]:.2f}`")
+        # La presión siempre se define como positiva en compresión según la rúbrica[cite: 8]
         st.write(f"**Presión (p):** `{estado['presion_p']:.2f}` (Compresión +)")
 
     st.divider()
