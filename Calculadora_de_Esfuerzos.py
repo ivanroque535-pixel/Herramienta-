@@ -114,6 +114,67 @@ def evaluar_criterios_ductiles(sigma_1: float, sigma_3: float, J2: float, sigma_
         "vm_sigma": sigma_vm,
         "vm_fs": fs_vm
     }
+
+def evaluar_criterios_geomateriales(sigma_1_t: float, sigma_3_t: float, I1: float, J2: float, c: float, phi_deg: float) -> dict:
+    """
+    Evalúa criterios para suelos y rocas.
+    Maneja internamente la dualidad de convenciones exigida por la rúbrica.
+    """
+    phi_rad = np.radians(phi_deg)
+    
+    # ==========================================
+    # 1. CRITERIO DE MOHR-COULOMB 
+    # ==========================================
+    # La rúbrica exige que MC use Compresión +
+    # Transformamos nuestros principales de Tensión + a Compresión +
+    sigma_1_c = -sigma_3_t  # El más negativo en tensión es el más compresivo
+    sigma_3_c = -sigma_1_t  # El más positivo en tensión es el menos compresivo
+    
+    N_phi = np.tan(np.radians(45.0 + phi_deg / 2.0))**2 #[cite: 8]
+    theta = 45.0 + phi_deg / 2.0 #[cite: 8]
+    
+    # Esfuerzo sigma_1 requerido para fallar bajo el sigma_3 actual
+    sigma_1_falla = sigma_3_c * N_phi + 2.0 * c * np.sqrt(N_phi) #[cite: 8]
+    
+    sigma_m = (sigma_1_c + sigma_3_c) / 2.0 #[cite: 8]
+    R = (sigma_1_c - sigma_3_c) / 2.0 #[cite: 8]
+    
+    # Validación Rúbrica: Estado hidrostático
+    if np.isclose(R, 0.0, atol=1e-6):
+        fs_mc = float('inf')
+    else:
+        fs_mc = (c * np.cos(phi_rad) + sigma_m * np.sin(phi_rad)) / R #[cite: 8]
+        
+    # ==========================================
+    # 2. CRITERIO DE DRUCKER-PRAGER
+    # ==========================================
+    # La rúbrica establece Tensión + para Drucker-Prager[cite: 8]
+    # Calibración para compresión triaxial
+    denominador = np.sqrt(3.0) * (3.0 - np.sin(phi_rad))
+    alpha = (2.0 * np.sin(phi_rad)) / denominador #[cite: 8]
+    k = (6.0 * c * np.cos(phi_rad)) / denominador #[cite: 8]
+    
+    F_dp = alpha * I1 + np.sqrt(J2) - k #[cite: 8]
+    
+    if np.isclose(J2, 0.0, atol=1e-6):
+        fs_dp = float('inf') #[cite: 9]
+    else:
+        fs_dp = (k - alpha * I1) / np.sqrt(J2) #[cite: 9]
+        
+    # Validación de Tensión existente (sigma_1 en tensión positiva > 0)
+    hay_tension = sigma_1_t > 1e-5
+    
+    return {
+        "mc_Nphi": N_phi,
+        "mc_s1falla": sigma_1_falla,
+        "mc_theta": theta,
+        "mc_fs": fs_mc,
+        "dp_alpha": alpha,
+        "dp_k": k,
+        "dp_F": F_dp,
+        "dp_fs": fs_dp,
+        "hay_tension": hay_tension
+    }
 # ==========================================
 # INTERFAZ DE USUARIO: BARRA LATERAL (INPUTS)
 # ==========================================
@@ -257,3 +318,75 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
             st.error(f"**FS von Mises:** `{fs_v:.3f}` (Falla)")
             
     st.divider()
+
+# --- MÓDULO 4: EVALUACIÓN DE GEOMATERIALES Y VEREDICTO ---
+    st.header("🪨 Criterios de Falla: Geomateriales (Suelos / Rocas)")
+    
+    res_geo = evaluar_criterios_geomateriales(
+        estado['principales'][0], 
+        estado['principales'][2], 
+        estado['invariantes_I'][0], 
+        estado['invariantes_J'][0], 
+        c_coh, 
+        phi
+    )
+    
+    # Requisito obligatorio: Advertir sobre la presencia de tensión
+    if res_geo['hay_tension']:
+        st.warning("⚠️ **Advertencia:** El estado de esfuerzos presenta tracción (tensión). Los criterios de Mohr-Coulomb y Drucker-Prager están diseñados principalmente para compresión y pueden dar resultados poco realistas en la zona de tracción pura.")
+    
+    col_m, col_d = st.columns(2)
+    
+    with col_m:
+        st.subheader("Mohr-Coulomb")
+        st.write(f"**N_φ:** `{res_geo['mc_Nphi']:.3f}` | **θ:** `{res_geo['mc_theta']:.2f}°`")
+        st.write(f"**σ₁ (falla):** `{res_geo['mc_s1falla']:.2f}` (Compresión +)")
+        
+        fs_m = res_geo['mc_fs']
+        if fs_m == float('inf'):
+            st.success("**FS Mohr-Coulomb:** `∞`")
+        elif fs_m >= 1.0:
+            st.success(f"**FS Mohr-Coulomb:** `{fs_m:.3f}` (Resiste)")
+        else:
+            st.error(f"**FS Mohr-Coulomb:** `{fs_m:.3f}` (Falla)")
+            
+    with col_d:
+        st.subheader("Drucker-Prager")
+        st.write(f"**α:** `{res_geo['dp_alpha']:.4f}` | **k:** `{res_geo['dp_k']:.2f}`")
+        st.write(f"**Función F:** `{res_geo['dp_F']:.2f}`") #[cite: 8]
+        
+        fs_d = res_geo['dp_fs']
+        if fs_d == float('inf'):
+            st.success("**FS Drucker-Prager:** `∞`")
+        elif fs_d >= 1.0:
+            st.success(f"**FS Drucker-Prager:** `{fs_d:.3f}` (Resiste)")
+        else:
+            st.error(f"**FS Drucker-Prager:** `{fs_d:.3f}` (Falla)")
+
+    st.divider()
+    
+    # TABLA DE VEREDICTO FINAL OBLIGATORIA[cite: 6]
+    st.header("📋 Veredicto Final")
+    st.markdown(f"**Convención declarada por el usuario:** `{convencion}`")
+    
+    # Formateo auxiliar para la tabla
+    def str_veredicto(fs):
+        if fs == float('inf'): return "✅ Resiste (∞)"
+        return "✅ Resiste" if fs >= 1.0 else "❌ Falla"
+
+    st.table({
+        "Criterio de Falla": ["Tresca", "von Mises", "Mohr-Coulomb", "Drucker-Prager"],
+        "Factor de Seguridad (FS)": [
+            f"{fs_t:.3f}" if fs_t != float('inf') else "∞", 
+            f"{fs_v:.3f}" if fs_v != float('inf') else "∞", 
+            f"{fs_m:.3f}" if fs_m != float('inf') else "∞", 
+            f"{fs_d:.3f}" if fs_d != float('inf') else "∞"
+        ],
+        "Veredicto": [
+            str_veredicto(fs_t), 
+            str_veredicto(fs_v), 
+            str_veredicto(fs_m), 
+            str_veredicto(fs_d)
+        ]
+    })
+    
