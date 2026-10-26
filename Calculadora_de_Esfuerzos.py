@@ -35,10 +35,15 @@ def calcular_estado_esfuerzos(tensor: np.ndarray) -> dict:
     esfuerzos principales y su componente desviadora.
     Asume que el tensor entrante está en convención de Tensión (+).
     """
-    # 1. Esfuerzos Principales
+    # 1. Esfuerzos Principales y Direcciones
     e_vals, e_vecs = np.linalg.eigh(tensor)
     idx = np.argsort(e_vals)[::-1]
+    
     sigma_1, sigma_2, sigma_3 = e_vals[idx]
+    
+    # Ordenamos también los vectores propios (columnas de e_vecs)
+    e_vecs = e_vecs[:, idx]
+    n_1, n_2, n_3 = e_vecs[:, 0], e_vecs[:, 1], e_vecs[:, 2]
     
     # 2. Invariantes del Tensor de Esfuerzos (I1, I2, I3)
     I1 = np.trace(tensor)
@@ -56,7 +61,7 @@ def calcular_estado_esfuerzos(tensor: np.ndarray) -> dict:
     # 5. Invariantes Desviadores (J2, J3)
     J2 = 0.5 * np.sum(s * s)
     J3 = np.linalg.det(s)
-    J2 = max(0.0, J2) # Evita J2 negativos microscópicos por error de flotante
+    J2 = max(0.0, J2) 
     
     # 6. Cortante Máximo y Esfuerzo Octaédrico
     tau_max = (sigma_1 - sigma_3) / 2.0
@@ -64,6 +69,7 @@ def calcular_estado_esfuerzos(tensor: np.ndarray) -> dict:
     
     return {
         "principales": (sigma_1, sigma_2, sigma_3),
+        "direcciones": (n_1, n_2, n_3), # <-- ¡AQUÍ AGREGAMOS LAS DIRECCIONES!
         "invariantes_I": (I1, I2, I3),
         "presion_p": p,
         "desviador_s": s,
@@ -141,9 +147,21 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
     
     with col1:
         st.subheader("Esfuerzos Principales")
+        
+        # Sigma 1
         st.write(f"**σ₁:** `{estado['principales'][0]:.2f}`")
+        d1 = estado['direcciones'][0]
+        st.caption(f"Dir n₁: `[{d1[0]:.3f}, {d1[1]:.3f}, {d1[2]:.3f}]`")
+        
+        # Sigma 2
         st.write(f"**σ₂:** `{estado['principales'][1]:.2f}`")
+        d2 = estado['direcciones'][1]
+        st.caption(f"Dir n₂: `[{d2[0]:.3f}, {d2[1]:.3f}, {d2[2]:.3f}]`")
+        
+        # Sigma 3
         st.write(f"**σ₃:** `{estado['principales'][2]:.2f}`")
+        d3 = estado['direcciones'][2]
+        st.caption(f"Dir n₃: `[{d3[0]:.3f}, {d3[1]:.3f}, {d3[2]:.3f}]`")
         
     with col2:
         st.subheader("Invariantes (Globales)")
