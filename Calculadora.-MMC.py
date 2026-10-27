@@ -334,6 +334,9 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
     else:
         tensor_backend = tensor_input
         st.info("ℹ️ Convención: **Tensión (+)**.")
+
+    st.write("### Tensor Operativo (Backend: Tensión +)")
+    st.write(tensor_backend)
         
     # --- MÓDULO 2: CÁLCULOS MATEMÁTICOS BÁSICOS ---
     estado = calcular_estado_esfuerzos(tensor_backend)
