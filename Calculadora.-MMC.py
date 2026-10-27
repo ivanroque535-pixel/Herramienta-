@@ -389,21 +389,32 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
     with col2:
         st.subheader("Invariantes (Globales)")
         st.write(f"**I₁:** `{disp_I1:.2f}`")
-        st.write(f"**I₂:** `{disp_I2:.2f}`")
-        st.write(f"**I₃:** `{disp_I3:.2f}`")
         
+        # Filtramos I2 e I3 para que solo salgan en Acero, tal como en la rúbrica
+        if tipo_material == "Acero (Dúctil)":
+            st.write(f"**I₂:** `{disp_I2:.2f}`")
+            st.write(f"**I₃:** `{disp_I3:.2f}`")
+            
     with col3:
         st.subheader("Invariantes (Desviadores)")
         st.write(f"**J₂:** `{estado['invariantes_J'][0]:.2f}`")
-        st.write(f"**J₃:** `{estado['invariantes_J'][1]:.2f}`")
-        # La presión siempre se define como positiva en compresión según la rúbrica[cite: 8]
-        st.write(f"**Presión (p):** `{estado['presion_p']:.2f}` (Compresión +)")
         
-    st.subheader("Esfuerzos Cortantes")
-    st.write(f"**Cortante Máximo (τ_max):** `{estado['cortantes'][0]:.2f}`")
-    st.write(f"**Cortante Octaédrico (τ_oct):** `{estado['cortantes'][1]:.2f}`")
+        # J3 siempre se calcula, pero lo mostramos junto con p según el material
+        if tipo_material == "Geomaterial (Suelo/Roca)":
+            st.write(f"**Presión (p):** `{estado['presion_p']:.2f}` (Compresión +)")
+        else:
+            st.write(f"**J₃:** `{estado['invariantes_J'][1]:.2f}`")
+        
+    # ------------------------------------
+    # Mostrar cortantes SOLO para materiales dúctiles
+    if tipo_material == "Acero (Dúctil)":
+        st.subheader("Esfuerzos Cortantes")
+        st.write(f"**Cortante Máximo (τ_max):** `{estado['cortantes'][0]:.2f}`")
+        st.write(f"**Cortante Octaédrico (τ_oct):** `{estado['cortantes'][1]:.2f}`")
+    # ------------------------------------
 
     st.divider()
+
 
     # Función auxiliar para la tabla de veredicto
     def str_veredicto(fs):
