@@ -300,15 +300,17 @@ tensor_input = np.array([
 st.sidebar.header("3. Parámetros del Material")
 tipo_material = st.sidebar.radio("Seleccione el tipo de material:", ["Acero (Dúctil)", "Geomaterial (Suelo/Roca)"])
 
-
-# Inicializamos variables por defecto
+# Inicializamos variables por defecto (AQUÍ AGREGAMOS LA VARIABLE FALTANTE)
 sigma_y, c_coh, phi = 0.0, 0.0, 0.0
+calibracion_dp = "Compresión Triaxial" 
 
 if tipo_material == "Acero (Dúctil)":
     sigma_y = st.sidebar.number_input("Límite de fluencia (σ_y) [Ej: MPa]", value=0.0, format="%.2f")
 else:
     c_coh = st.sidebar.number_input("Cohesión (c) [Ej: kPa o MPa]", value=0.0, format="%.2f")
     phi = st.sidebar.number_input("Ángulo de fricción (φ) [Grados]", value=0.0, min_value=0.0, max_value=89.9, format="%.2f")
+    # AQUÍ AGREGAMOS EL BOTÓN QUE SE HABÍA BORRADO
+    calibracion_dp = st.sidebar.radio("Calibración Drucker-Prager:", ["Compresión Triaxial", "Extensión Triaxial"])
 
 # ==========================================
 # MOTOR DE EJECUCIÓN PRINCIPAL
