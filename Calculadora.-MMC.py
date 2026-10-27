@@ -366,16 +366,25 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
         
     col1, col2, col3 = st.columns(3)
     
-    with col1:
+  with col1:
         st.subheader("Esfuerzos Principales")
+        
+        # Función auxiliar para obtener el ángulo agudo respecto al eje X
+        def angulo_x(nx):
+            ang = np.degrees(np.arccos(np.clip(abs(nx), -1.0, 1.0)))
+            return ang
+
         st.write(f"**σ₁:** `{disp_s1:.2f}`")
         st.caption(f"Dir n₁: `[{disp_n1[0]:.3f}, {disp_n1[1]:.3f}, {disp_n1[2]:.3f}]`")
+        st.caption(f"Ángulo con eje X (θx): `{angulo_x(disp_n1[0]):.2f}°`")
         
         st.write(f"**σ₂:** `{disp_s2:.2f}`")
         st.caption(f"Dir n₂: `[{disp_n2[0]:.3f}, {disp_n2[1]:.3f}, {disp_n2[2]:.3f}]`")
+        st.caption(f"Ángulo con eje X (θx): `{angulo_x(disp_n2[0]):.2f}°`")
         
         st.write(f"**σ₃:** `{disp_s3:.2f}`")
         st.caption(f"Dir n₃: `[{disp_n3[0]:.3f}, {disp_n3[1]:.3f}, {disp_n3[2]:.3f}]`")
+        st.caption(f"Ángulo con eje X (θx): `{angulo_x(disp_n3[0]):.2f}°`")
         
     with col2:
         st.subheader("Invariantes (Globales)")
