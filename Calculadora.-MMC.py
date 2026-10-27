@@ -319,15 +319,6 @@ tensor_input = np.array([
 st.sidebar.header("3. Parámetros del Material")
 tipo_material = st.sidebar.radio("Seleccione el tipo de material:", ["Acero (Dúctil)", "Geomaterial (Suelo/Roca)"])
 
-sigma_y, c_coh, phi = 0.0, 0.0, 0.0
-calibracion_dp = "Compresión Triaxial" # Valor por defecto
-
-if tipo_material == "Acero (Dúctil)":
-    sigma_y = st.sidebar.number_input("Límite de fluencia (σ_y)", value=250.0, format="%.2f")
-else:
-    c_coh = st.sidebar.number_input("Cohesión (c)", value=18.0, format="%.2f")
-    phi = st.sidebar.number_input("Ángulo de fricción (φ)", value=28.0, min_value=0.0, max_value=89.9, format="%.2f")
-    calibracion_dp = st.sidebar.radio("Calibración Drucker-Prager:", ["Compresión Triaxial", "Extensión Triaxial"])
 
 # Inicializamos variables por defecto
 sigma_y, c_coh, phi = 0.0, 0.0, 0.0
