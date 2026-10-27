@@ -121,7 +121,7 @@ def evaluar_criterios_ductiles(sigma_1: float, sigma_3: float, J2: float, sigma_
         "vm_fs": fs_vm
     }
 
-def evaluar_criterios_geomateriales(sigma_1_t: float, sigma_3_t: float, I1: float, J2: float, c: float, phi_deg: float) -> dict:
+def evaluar_criterios_geomateriales(sigma_1_t: float, sigma_3_t: float, I1: float, J2: float, c: float, phi_deg: float, calibracion: str) -> dict:
     """
     Evalúa criterios para suelos y rocas.
     Maneja internamente la dualidad de convenciones exigida por la rúbrica.
