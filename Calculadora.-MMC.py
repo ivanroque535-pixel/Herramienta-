@@ -151,7 +151,9 @@ def evaluar_criterios_geomateriales(sigma_1_t: float, sigma_3_t: float, I1: floa
     else:
         fs_mc = (c * np.cos(phi_rad) + sigma_m * np.sin(phi_rad)) / R #[cite: 8]
         
-        # 2. DRUCKER-PRAGER (Calibración Dinámica)
+    # ==========================================
+    # 2. DRUCKER-PRAGER (Calibración Dinámica)
+    # ==========================================
     if calibracion == "Compresión Triaxial":
         denominador = np.sqrt(3.0) * (3.0 - np.sin(phi_rad))
     else: # Extensión Triaxial
@@ -160,34 +162,13 @@ def evaluar_criterios_geomateriales(sigma_1_t: float, sigma_3_t: float, I1: floa
     alpha = (2.0 * np.sin(phi_rad)) / denominador
     k = (6.0 * c * np.cos(phi_rad)) / denominador
     
-    F_dp = alpha * I1 + np.sqrt(J2) - k
+    F_dp = alpha * I1 + np.sqrt(J2) - k 
     
-    if np.isclose(J2, 0.0, atol=1e-6): fs_dp = float('inf')
-    else: fs_dp = (k - alpha * I1) / np.sqrt(J2)
+    if np.isclose(J2, 0.0, atol=1e-6): 
+        fs_dp = float('inf') 
+    else: 
+        fs_dp = (k - alpha * I1) / np.sqrt(J2) 
         
-    hay_tension = sigma_1_t > 1e-5
-    return {
-        "mc_Nphi": N_phi, "mc_s1falla": sigma_1_falla, "mc_theta": theta, "mc_fs": fs_mc,
-        "dp_alpha": alpha, "dp_k": k, "dp_F": F_dp, "dp_fs": fs_dp, "hay_tension": hay_tension
-    }
-        
-    # ==========================================
-    # 2. CRITERIO DE DRUCKER-PRAGER
-    # ==========================================
-    # La rúbrica establece Tensión + para Drucker-Prager[cite: 8]
-    # Calibración para compresión triaxial
-    denominador = np.sqrt(3.0) * (3.0 - np.sin(phi_rad))
-    alpha = (2.0 * np.sin(phi_rad)) / denominador #[cite: 8]
-    k = (6.0 * c * np.cos(phi_rad)) / denominador #[cite: 8]
-    
-    F_dp = alpha * I1 + np.sqrt(J2) - k #[cite: 8]
-    
-    if np.isclose(J2, 0.0, atol=1e-6):
-        fs_dp = float('inf') #[cite: 9]
-    else:
-        fs_dp = (k - alpha * I1) / np.sqrt(J2) #[cite: 9]
-        
-    # Validación de Tensión existente (sigma_1 en tensión positiva > 0)
     hay_tension = sigma_1_t > 1e-5
     
     return {
