@@ -151,6 +151,26 @@ def evaluar_criterios_geomateriales(sigma_1_t: float, sigma_3_t: float, I1: floa
     else:
         fs_mc = (c * np.cos(phi_rad) + sigma_m * np.sin(phi_rad)) / R #[cite: 8]
         
+        # 2. DRUCKER-PRAGER (Calibración Dinámica)
+    if calibracion == "Compresión Triaxial":
+        denominador = np.sqrt(3.0) * (3.0 - np.sin(phi_rad))
+    else: # Extensión Triaxial
+        denominador = np.sqrt(3.0) * (3.0 + np.sin(phi_rad))
+        
+    alpha = (2.0 * np.sin(phi_rad)) / denominador
+    k = (6.0 * c * np.cos(phi_rad)) / denominador
+    
+    F_dp = alpha * I1 + np.sqrt(J2) - k
+    
+    if np.isclose(J2, 0.0, atol=1e-6): fs_dp = float('inf')
+    else: fs_dp = (k - alpha * I1) / np.sqrt(J2)
+        
+    hay_tension = sigma_1_t > 1e-5
+    return {
+        "mc_Nphi": N_phi, "mc_s1falla": sigma_1_falla, "mc_theta": theta, "mc_fs": fs_mc,
+        "dp_alpha": alpha, "dp_k": k, "dp_F": F_dp, "dp_fs": fs_dp, "hay_tension": hay_tension
+    }
+        
     # ==========================================
     # 2. CRITERIO DE DRUCKER-PRAGER
     # ==========================================
@@ -297,10 +317,17 @@ tensor_input = np.array([
 ])
 
 st.sidebar.header("3. Parámetros del Material")
-tipo_material = st.sidebar.radio(
-    "Seleccione el tipo de material:", 
-    ["Acero (Dúctil)", "Geomaterial (Suelo/Roca)"]
-)
+tipo_material = st.sidebar.radio("Seleccione el tipo de material:", ["Acero (Dúctil)", "Geomaterial (Suelo/Roca)"])
+
+sigma_y, c_coh, phi = 0.0, 0.0, 0.0
+calibracion_dp = "Compresión Triaxial" # Valor por defecto
+
+if tipo_material == "Acero (Dúctil)":
+    sigma_y = st.sidebar.number_input("Límite de fluencia (σ_y)", value=250.0, format="%.2f")
+else:
+    c_coh = st.sidebar.number_input("Cohesión (c)", value=18.0, format="%.2f")
+    phi = st.sidebar.number_input("Ángulo de fricción (φ)", value=28.0, min_value=0.0, max_value=89.9, format="%.2f")
+    calibracion_dp = st.sidebar.radio("Calibración Drucker-Prager:", ["Compresión Triaxial", "Extensión Triaxial"])
 
 # Inicializamos variables por defecto
 sigma_y, c_coh, phi = 0.0, 0.0, 0.0
@@ -476,7 +503,8 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
             estado['invariantes_I'][0], 
             estado['invariantes_J'][0], 
             c_coh, 
-            phi
+            phi,
+            calibracion_dp # <-- NUEVO PARÁMETRO
         )
         
         if res_geo['hay_tension']:
@@ -514,5 +542,30 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
         st.header("📈 Representación Gráfica")
         fig_mohr = plot_circulos_mohr(disp_s1, disp_s2, disp_s3, c_coh, phi, graficar_envolvente=True)
         st.pyplot(fig_mohr)
+        
+        # ==========================================
+    # EXTRAS: EXPORTAR A CSV
+    # ==========================================
+    st.divider()
+    st.subheader("💾 Exportar Reporte")
+    
+    # Preparamos el texto del CSV
+    csv_text = "Criterio,Factor_Seguridad,Veredicto\n"
+    
+    if tipo_material == "Acero (Dúctil)":
+        csv_text += f"Tresca,{fs_t if fs_t != float('inf') else 'Infinito'},{str_veredicto(fs_t)}\n"
+        csv_text += f"von Mises,{fs_v if fs_v != float('inf') else 'Infinito'},{str_veredicto(fs_v)}\n"
+    else:
+        csv_text += f"Mohr-Coulomb,{fs_m if fs_m != float('inf') else 'Infinito'},{str_veredicto(fs_m)}\n"
+        csv_text += f"Drucker-Prager ({calibracion_dp}),{fs_d if fs_d != float('inf') else 'Infinito'},{str_veredicto(fs_d)}\n"
+        
+    # Botón de descarga nativo de Streamlit
+    st.download_button(
+        label="📥 Descargar Veredicto (CSV)",
+        data=csv_text.encode('utf-8'),
+        file_name="reporte_criterios_falla.csv",
+        mime="text/csv",
+        type="primary"
+    )
 
 
