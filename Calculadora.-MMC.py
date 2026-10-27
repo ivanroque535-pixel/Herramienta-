@@ -366,7 +366,7 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
         
     col1, col2, col3 = st.columns(3)
     
-  with col1:
+    with col1:
         st.subheader("Esfuerzos Principales")
         
         # Función auxiliar para obtener el ángulo agudo respecto al eje X
