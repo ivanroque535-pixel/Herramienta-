@@ -387,7 +387,7 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
         # La presión siempre se define como positiva en compresión según la rúbrica[cite: 8]
         st.write(f"**Presión (p):** `{estado['presion_p']:.2f}` (Compresión +)")
         
-        st.subheader("Esfuerzos Cortantes")
+    st.subheader("Esfuerzos Cortantes")
     st.write(f"**Cortante Máximo (τ_max):** `{estado['cortantes'][0]:.2f}`")
     st.write(f"**Cortante Octaédrico (τ_oct):** `{estado['cortantes'][1]:.2f}`")
 
