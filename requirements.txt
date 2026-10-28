@@ -2,3 +2,5 @@ streamlit
 streamlit-keyup
 numpy
 matplotlib
+pandas
+openpyxl
