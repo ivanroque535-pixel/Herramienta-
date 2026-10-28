@@ -2,6 +2,9 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import io
+import pandas as pd
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA
@@ -517,29 +520,120 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
         fig_mohr = plot_circulos_mohr(disp_s1, disp_s2, disp_s3, c_coh, phi, graficar_envolvente=True)
         st.pyplot(fig_mohr)
         
-        # ==========================================
-    # EXTRAS: EXPORTAR A CSV
+   # ==========================================
+    # EXTRAS: EXPORTAR A EXCEL Y PDF (11/10)
     # ==========================================
     st.divider()
-    st.subheader("💾 Exportar Reporte")
+    st.subheader("💾 Exportar Reportes Profesionales")
     
-    # Preparamos el texto del CSV
-    csv_text = "Criterio,Factor_Seguridad,Veredicto\n"
+    col_pdf, col_excel = st.columns(2)
     
-    if tipo_material == "Acero (Dúctil)":
-        csv_text += f"Tresca,{fs_t if fs_t != float('inf') else 'Infinito'},{str_veredicto(fs_t)}\n"
-        csv_text += f"von Mises,{fs_v if fs_v != float('inf') else 'Infinito'},{str_veredicto(fs_v)}\n"
-    else:
-        csv_text += f"Mohr-Coulomb,{fs_m if fs_m != float('inf') else 'Infinito'},{str_veredicto(fs_m)}\n"
-        csv_text += f"Drucker-Prager ({calibracion_dp}),{fs_d if fs_d != float('inf') else 'Infinito'},{str_veredicto(fs_d)}\n"
+    # ------------------------------------------
+    # 1. GENERAR PDF (DESGLOSE MATEMÁTICO)
+    # ------------------------------------------
+    with col_pdf:
+        # Usamos matplotlib como motor PDF nativo (sin dependencias extra)
+        pdf_buffer = io.BytesIO()
+        fig_pdf, ax_pdf = plt.subplots(figsize=(8.5, 11))
+        ax_pdf.axis('off') # Ocultamos los ejes, solo queremos texto
         
-    # Botón de descarga nativo de Streamlit
-    st.download_button(
-        label="📥 Descargar Veredicto (CSV)",
-        data=csv_text.encode('utf-8'),
-        file_name="reporte_criterios_falla.csv",
-        mime="text/csv",
-        type="primary"
-    )
+        # Construimos el texto del desglose matemático
+        txt = f"DESGLOSE MATEMÁTICO: {tipo_material.upper()}\n"
+        txt += f"{'='*60}\n\n"
+        txt += f"[1] Esfuerzos Principales (Convención: {convencion})\n"
+        txt += f"    σ1 = {disp_s1:.2f} | σ2 = {disp_s2:.2f} | σ3 = {disp_s3:.2f}\n\n"
+        txt += f"[2] Invariantes\n"
+        txt += f"    I1 = {disp_I1:.2f} | J2 = {estado['invariantes_J'][0]:.2f}\n"
+        
+        if tipo_material == "Acero (Dúctil)":
+            txt += f"    I2 = {disp_I2:.2f} | I3 = {disp_I3:.2f}\n"
+        else:
+            txt += f"    Presión (p) = {estado['presion_p']:.2f}\n"
+        
+        txt += f"\n[3] Criterios de Falla\n"
+        if tipo_material == "Acero (Dúctil)":
+            txt += f"    TRESCA: Diferencia principal (q) = {res_ductil['tresca_q']:.2f}\n"
+            txt += f"            Factor de Seguridad (FS) = {fs_t if fs_t != float('inf') else 'Infinito'}\n\n"
+            txt += f"    VON MISES: Esfuerzo Equivalente = {res_ductil['vm_sigma']:.2f}\n"
+            txt += f"               Factor de Seguridad (FS) = {fs_v if fs_v != float('inf') else 'Infinito'}\n"
+        else:
+            txt += f"    MOHR-COULOMB: N_φ = {res_geo['mc_Nphi']:.3f} | θ = {res_geo['mc_theta']:.2f}°\n"
+            txt += f"                  σ1 (falla) = {res_geo['mc_s1falla']:.2f}\n"
+            txt += f"                  Factor de Seguridad (FS) = {fs_m if fs_m != float('inf') else 'Infinito'}\n\n"
+            txt += f"    DRUCKER-PRAGER: α = {res_geo['dp_alpha']:.4f} | k = {res_geo['dp_k']:.2f}\n"
+            txt += f"                    Función F = {res_geo['dp_F']:.2f}\n"
+            txt += f"                    Factor de Seguridad (FS) = {fs_d if fs_d != float('inf') else 'Infinito'}\n"
+            
+        ax_pdf.text(0.05, 0.95, txt, transform=ax_pdf.transAxes, fontsize=11, 
+                    verticalalignment='top', family='monospace')
+        
+        fig_pdf.savefig(pdf_buffer, format='pdf', bbox_inches='tight')
+        plt.close(fig_pdf)
+        
+        st.download_button(
+            label="📄 Descargar Desglose (PDF)",
+            data=pdf_buffer.getvalue(),
+            file_name="Desglose_Matematico.pdf",
+            mime="application/pdf",
+            type="secondary"
+        )
+
+    # ------------------------------------------
+    # 2. GENERAR EXCEL CON GRÁFICA Y DATOS
+    # ------------------------------------------
+    with col_excel:
+        excel_buffer = io.BytesIO()
+        
+        # 2a. Guardar la gráfica actual en memoria
+        img_buffer = io.BytesIO()
+        if tipo_material == "Acero (Dúctil)":
+            fig_ductil.savefig(img_buffer, format='png')
+        else:
+            fig_mohr.savefig(img_buffer, format='png')
+            
+        # 2b. Crear la estructura del Excel
+        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+            
+            # Lógica para estructurar la tabla según la rúbrica
+            datos = {
+                "Parámetro": ["σ1", "σ2", "σ3", "I1", "J2"],
+                "Valor": [disp_s1, disp_s2, disp_s3, disp_I1, estado['invariantes_J'][0]]
+            }
+            if tipo_material == "Acero (Dúctil)":
+                datos["Parámetro"].extend(["I2", "I3", "FS Tresca", "FS von Mises"])
+                datos["Valor"].extend([disp_I2, disp_I3, fs_t, fs_v])
+                resumen = "El acero RESISTE." if (fs_t >= 1 and fs_v >= 1) else "El acero FALLA."
+            else:
+                datos["Parámetro"].extend(["p", "FS Mohr-Coulomb", "FS Drucker-Prager"])
+                datos["Valor"].extend([estado['presion_p'], fs_m, fs_d])
+                resumen = "El material RESISTE." if (fs_m >= 1 and fs_d >= 1) else "El material FALLA."
+                
+            # Evitar error de Excel con números infinitos
+            datos["Valor"] = [val if val != float('inf') else "Infinito" for val in datos["Valor"]]
+            
+            # Escribir la tabla
+            df = pd.DataFrame(datos)
+            df.to_excel(writer, sheet_name='Resultados', index=False)
+            
+            # 2c. Inyectar Gráfica y Texto de Interpretación
+            workbook = writer.book
+            worksheet = writer.sheets['Resultados']
+            
+            # Escribir la interpretación dictaminada
+            worksheet['D2'] = "Interpretación de Ingeniería:"
+            worksheet['D3'] = resumen
+            
+            # Incrustar la imagen en el Excel
+            img = OpenpyxlImage(img_buffer)
+            img.width, img.height = int(img.width * 0.7), int(img.height * 0.7) # Escalar un poco
+            worksheet.add_image(img, 'D5') # Colocar imagen en la celda D5
+            
+        st.download_button(
+            label="📊 Descargar Reporte Completo (Excel)",
+            data=excel_buffer.getvalue(),
+            file_name="Reporte_Completo.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary"
+        )
 
 
