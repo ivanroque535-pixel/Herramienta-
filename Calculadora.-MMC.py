@@ -269,6 +269,76 @@ def plot_circulos_mohr(s1, s2, s3, c_coh=0, phi_deg=0, graficar_envolvente=False
     ax.legend(loc="upper right")
     
     return fig
+    def plot_seccion_pi(s1, s2, s3, c_coh, phi_deg, calibracion="Compresión Triaxial"):
+    """
+    Dibuja la proyección en el plano π (plano desviador) del hexágono de Mohr-Coulomb
+    y el círculo de Drucker-Prager para el nivel de confinamiento (I1) actual.
+    """
+    fig, ax = plt.subplots(figsize=(6, 6))
+    phi_rad = np.radians(phi_deg)
+    
+    # 1. Variables de estado actual
+    I1 = s1 + s2 + s3
+    
+    # Proyección del punto de esfuerzo actual en el plano π
+    # Usamos la transformación estándar de tensiones principales a coordenadas cartesianas del plano π
+    x_estado = (s2 - s3) / np.sqrt(2)
+    y_estado = (2 * s1 - s2 - s3) / np.sqrt(6)
+    
+    # 2. Drucker-Prager (Círculo en el plano π)
+    if calibracion == "Compresión Triaxial":
+        denominador = np.sqrt(3.0) * (3.0 - np.sin(phi_rad))
+    else:
+        denominador = np.sqrt(3.0) * (3.0 + np.sin(phi_rad))
+        
+    alpha = (2.0 * np.sin(phi_rad)) / denominador
+    k = (6.0 * c_coh * np.cos(phi_rad)) / denominador
+    
+    # Radio del círculo de DP en el plano π (r = sqrt(2 * J2_falla))
+    radio_dp = np.sqrt(2.0) * (k - alpha * I1)
+    if radio_dp > 0:
+        c_dp = patches.Circle((0, 0), radio_dp, color='green', fill=False, linestyle='--', linewidth=2, label=f'Drucker-Prager ({calibracion[:4]})')
+        ax.add_patch(c_dp)
+
+    # 3. Mohr-Coulomb (Hexágono irregular)
+    # Generamos los 6 vértices variando el ángulo de Lode
+    angulos_lode = np.array([30, 90, 150, 210, 270, 330]) * np.pi / 180.0
+    radios_mc = []
+    
+    for theta in angulos_lode:
+        # Relación teórica de MC en el plano π
+        r_mc = (np.sqrt(2.0) * (c_coh * np.cos(phi_rad) - (I1/3.0) * np.sin(phi_rad))) / (np.cos(theta) + (np.sin(theta) * np.sin(phi_rad)) / np.sqrt(3.0))
+        radios_mc.append(max(0, r_mc))
+        
+    # Añadimos el primer punto al final para cerrar el hexágono
+    radios_mc.append(radios_mc[0])
+    angulos_lode = np.append(angulos_lode, angulos_lode[0])
+    
+    # Convertimos coordenadas polares a cartesianas
+    x_mc = radios_mc * np.cos(angulos_lode)
+    y_mc = radios_mc * np.sin(angulos_lode)
+    
+    ax.plot(x_mc, y_mc, 'r-', linewidth=2, label='Mohr-Coulomb')
+    
+    # 4. Dibujar el estado actual
+    ax.plot(x_estado, y_estado, 'ko', markersize=8, zorder=5, label='Estado Actual')
+    ax.plot([0, x_estado], [0, y_estado], 'k:', alpha=0.5)
+
+    # 5. Formato de la gráfica
+    ax.set_aspect('equal', 'box')
+    ax.set_title(f"Sección π (Plano Desviador) para I₁ = {I1:.2f}")
+    ax.set_xlabel("Proyección Desviadora X")
+    ax.set_ylabel("Proyección Desviadora Y")
+    ax.axhline(0, color='black', linewidth=0.5)
+    ax.axvline(0, color='black', linewidth=0.5)
+    ax.grid(True, linestyle=':', alpha=0.6)
+    
+    limite = max(radio_dp, max(radios_mc)) * 1.3 if radio_dp > 0 else 10
+    ax.set_xlim(-limite, limite)
+    ax.set_ylim(-limite, limite)
+    ax.legend(loc='upper right', fontsize='small')
+    
+    return fig
 # ==========================================
 # INTERFAZ DE USUARIO: BARRA LATERAL (INPUTS)
 # ==========================================
@@ -519,6 +589,11 @@ if st.sidebar.button("Calcular Estado y Criterios", type="primary"):
         st.header("📈 Representación Gráfica")
         fig_mohr = plot_circulos_mohr(disp_s1, disp_s2, disp_s3, c_coh, phi, graficar_envolvente=True)
         st.pyplot(fig_mohr)
+        # --- AQUÍ EMPIEZA LO NUEVO ---
+        st.write("---") # Pequeño separador visual
+        fig_pi = plot_seccion_pi(estado['principales'][0], estado['principales'][1], estado['principales'][2], c_coh, phi, calibracion_dp)
+        st.pyplot(fig_pi)
+        # -----------------------------
         
    # ==========================================
     # EXTRAS: EXPORTAR A EXCEL Y PDF (Paso a Paso)
