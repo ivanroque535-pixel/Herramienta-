@@ -269,7 +269,7 @@ def plot_circulos_mohr(s1, s2, s3, c_coh=0, phi_deg=0, graficar_envolvente=False
     ax.legend(loc="upper right")
     
     return fig
-    def plot_seccion_pi(s1, s2, s3, c_coh, phi_deg, calibracion="Compresión Triaxial"):
+def plot_seccion_pi(s1, s2, s3, c_coh, phi_deg, calibracion="Compresión Triaxial"):
         """
         Dibuja la proyección en el plano π (plano desviador) del hexágono de Mohr-Coulomb
         y el círculo de Drucker-Prager para el nivel de confinamiento (I1) actual.
