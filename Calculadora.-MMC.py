@@ -301,25 +301,25 @@ def plot_seccion_pi(s1, s2, s3, c_coh, phi_deg, calibracion="Compresión Triaxia
             ax.add_patch(c_dp)
     
         # 3. Mohr-Coulomb (Hexágono irregular)
-        # Generamos los 6 vértices variando el ángulo de Lode
-        angulos_lode = np.array([30, 90, 150, 210, 270, 330]) * np.pi / 180.0
-        radios_mc = []
-        
-        for theta in angulos_lode:
-            # Relación teórica de MC en el plano π
-            r_mc = (np.sqrt(2.0) * (c_coh * np.cos(phi_rad) - (I1/3.0) * np.sin(phi_rad))) / (np.cos(theta) + (np.sin(theta) * np.sin(phi_rad)) / np.sqrt(3.0))
-            radios_mc.append(max(0, r_mc))
+        # Matemáticamente, el hexágono alterna entre un radio exterior (compresión) 
+        # y un radio interior (extensión) cada 60 grados.
+        if calibracion == "Compresión Triaxial":
+            R_outer = radio_dp
+            R_inner = radio_dp * (3.0 - np.sin(phi_rad)) / (3.0 + np.sin(phi_rad))
+        else: # Extensión Triaxial
+            R_inner = radio_dp
+            R_outer = radio_dp * (3.0 + np.sin(phi_rad)) / (3.0 - np.sin(phi_rad))
             
-        # Añadimos el primer punto al final para cerrar el hexágono
-        radios_mc.append(radios_mc[0])
-        angulos_lode = np.append(angulos_lode, angulos_lode[0])
+        # Definimos los 6 vértices en el plano desviador (empezando en 30° y cerrando en 30°)
+        angulos_deg = [30, 90, 150, 210, 270, 330, 30]
+        radios_mc = [R_inner, R_outer, R_inner, R_outer, R_inner, R_outer, R_inner]
         
-        # Convertimos coordenadas polares a cartesianas
-        x_mc = radios_mc * np.cos(angulos_lode)
-        y_mc = radios_mc * np.sin(angulos_lode)
+        angulos_rad = np.radians(angulos_deg)
+        x_mc = np.array(radios_mc) * np.cos(angulos_rad)
+        y_mc = np.array(radios_mc) * np.sin(angulos_rad)
         
         ax.plot(x_mc, y_mc, 'r-', linewidth=2, label='Mohr-Coulomb')
-        
+            
         # 4. Dibujar el estado actual
         ax.plot(x_estado, y_estado, 'ko', markersize=8, zorder=5, label='Estado Actual')
         ax.plot([0, x_estado], [0, y_estado], 'k:', alpha=0.5)
