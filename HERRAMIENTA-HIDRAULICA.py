@@ -50,7 +50,7 @@ with st.sidebar:
     st.subheader("1. Propiedades del Fluido (Agua)")
     temp_agua = st.slider("Temperatura del agua (°C)", min_value=5, max_value=40, value=20, step=1)
     
-    # Cálculo aproximado de densidad y viscosidad según la temperatura
+    # Cálculo de densidad y viscosidad según la temperatura
     rho_agua = 1000.0 - (temp_agua - 4)**2 / 180.0  # kg/m³
     nu_agua = (1.787 / (1 + 0.0337 * temp_agua + 0.000221 * (temp_agua**2))) * 1e-6  # m²/s
     
@@ -60,13 +60,13 @@ with st.sidebar:
     st.divider()
     
     st.subheader("2. Criterios Operativos y Red")
-    p_min_requerida = st.number_input("Presión mínima requerida en mueble (m.c.a.)", min_value=0.5, value=2.0, step=0.5)[cite: 2, 3]
-    desnivel_topografico = st.number_input("Desnivel topográfico total ΔZ (m)", min_value=0.0, value=5.20, step=0.10)[cite: 2, 3]
+    p_min_requerida = st.number_input("Presión mínima requerida en mueble (m.c.a.)", min_value=0.5, value=2.0, step=0.5)
+    desnivel_topografico = st.number_input("Desnivel topográfico total ΔZ (m)", min_value=0.0, value=5.20, step=0.10)
     
     st.divider()
     
     st.subheader("3. Parámetros Electromecánicos")
-    eficiencia_bomba = st.slider("Eficiencia de la bomba (η)", min_value=0.40, max_value=0.85, value=0.60, step=0.05)[cite: 3, 5]
+    eficiencia_bomba = st.slider("Eficiencia de la bomba (η)", min_value=0.40, max_value=0.85, value=0.60, step=0.05)
 
 # ==============================================================================
 # 3. NAVEGACIÓN EN PESTAÑAS (ST.TABS)
@@ -80,7 +80,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD
+# PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD (MÓDULO 1)
 # ------------------------------------------------------------------------------
 with tab1:
     st.header("📋 Módulo 1: Topología de Red, Tramos y Simultaneidad")
@@ -98,7 +98,6 @@ with tab1:
             ["CPVC (ε = 0.0015 mm, C = 150)", "Cobre (ε = 0.0015 mm, C = 150)", "PVC (ε = 0.0015 mm, C = 150)", "Acero Galvanizado (ε = 0.15 mm, C = 120)"]
         )
     
-    # Asignación de rugosidad y C según material seleccionado por defecto
     if "CPVC" in material_predeterminado or "Cobre" in material_predeterminado or "PVC" in material_predeterminado:
         eps_default = 0.0015  # mm
         c_default = 150
@@ -109,7 +108,6 @@ with tab1:
     st.markdown("### 🛠️ Tabla de Configuración de Tramos")
     st.caption("Puedes modificar directamente los datos de la tabla (longitudes, muebles, diámetros, accesorios).")
 
-    # Datos por defecto correspondientes al Caso A de la Rúbrica (2 Niveles, 8 Muebles)
     datos_iniciales = pd.DataFrame([
         {"Tramo": "Cisterna -> TDT (Subida Principal)", "L_m": 8.5, "DN_mm": 25.4, "UM": 24, "Q_directo_Lps": 0.0, "Acc_K_total": 3.5, "Desnivel_m": 5.2, "Mueble_Final": "Tanque Distribuidor"},
         {"Tramo": "TDT -> Regadera 1 (P. Alta)", "L_m": 4.0, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.5, "Desnivel_m": 0.0, "Mueble_Final": "Regadera P.A. (Crítico P.A.)"},
@@ -137,11 +135,7 @@ with tab1:
         }
     )
 
-    # --------------------------------------------------------------------------
-    # LÓGICA DE PROCESAMIENTO DE CAUDALES Y SIMULTANEIDAD
-    # --------------------------------------------------------------------------
     def calcular_gasto_hunter(um):
-        """Conversión polinómica exacta de Unidades Mueble Hunter a L/s (Agua Fría/Caliente)"""
         if um <= 0:
             return 0.0
         elif um <= 10:
@@ -152,19 +146,14 @@ with tab1:
             return 0.40 * (um ** 0.38)
 
     df_procesado = df_tramos.copy()
-    
-    # Asignación de rugosidad y C al dataframe
     df_procesado["Rugosidad_mm"] = eps_default
     df_procesado["Coef_C"] = c_default
     
-    # Cálculo de Caudal de Diseño Q (L/s y m³/s)
     if "Hunter" in metodo_simultaneidad:
         df_procesado["Q_diseno_Lps"] = df_procesado["UM"].apply(calcular_gasto_hunter)
     elif "ks" in metodo_simultaneidad:
-        # Coeficiente ks = 1 / sqrt(n - 1)
         df_procesado["n_muebles"] = df_procesado["UM"].apply(lambda x: max(1, x))
         df_procesado["ks"] = df_procesado["n_muebles"].apply(lambda n: 1.0 if n <= 1 else 1.0 / np.sqrt(n - 1))
-        # Asumiendo gasto base unitario de 0.15 L/s por mueble en simulación ks
         df_procesado["Q_diseno_Lps"] = df_procesado["n_muebles"] * 0.15 * df_procesado["ks"]
     else:
         df_procesado["Q_diseno_Lps"] = df_procesado["Q_directo_Lps"]
@@ -173,36 +162,34 @@ with tab1:
     df_procesado["Area_m2"] = np.pi * ((df_procesado["DN_mm"] / 1000.0) ** 2) / 4.0
     df_procesado["Velocidad_ms"] = df_procesado["Q_diseno_m3s"] / df_procesado["Area_m2"]
 
-    # Guardar en sesión de Streamlit para consumo de los siguientes módulos
     st.session_state["df_hidraulica"] = df_procesado
-
     st.success(f"✅ Tramos procesados exitosamente ({len(df_procesado)} tramos registrados). Procede a la Pestaña 2 para la evaluación de pérdidas.")
-    # Estructura del formulario editable para el Módulo 1 (se implementará en la Fase 3)
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 2: EVALUACIÓN DUAL DE PÉRDIDAS POR FRICCIÓN
 # ------------------------------------------------------------------------------
 with tab2:
     st.header("Comparativa Simultánea: Darcy-Weisbach vs. Hazen-Williams")
-    st.info("Cálculo paralelo del factor de fricción (Colebrook-White/Swamee-Jain) y ecuación empírica de Hazen-Williams.")[cite: 2]
+    st.info("Cálculo paralelo del factor de fricción (Colebrook-White/Swamee-Jain) y ecuación empírica de Hazen-Williams.")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL
 # ------------------------------------------------------------------------------
 with tab3:
     st.header("Acumulación de Presión y Punto Desfavorable")
-    st.info("Identificación automática de la ruta crítica y cálculo global de pérdidas acumuladas.")[cite: 2]
+    st.info("Identificación automática de la ruta crítica y cálculo global de pérdidas acumuladas.")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 4: EQUIPO DE BOMBEO Y GRÁFICOS INTERACTIVOS
 # ------------------------------------------------------------------------------
 with tab4:
     st.header("Dimensionamiento de Bomba y Análisis Gráfico")
-    st.info("Potencia requerida (HP), curvas del sistema vs. bomba y análisis transitorio de golpe de ariete.")[cite: 2, 3, 5]
+    st.info("Potencia requerida (HP), curvas del sistema vs. bomba y análisis transitorio de golpe de ariete.")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 5: MEMORIA DE CÁLCULO Y AUDITORÍA DE IA
 # ------------------------------------------------------------------------------
 with tab5:
     st.header("Memoria Ejecutiva y Bitácora de Prompts")
-    st.info("Generación de reporte técnico ejecutable y registro de auditoría/control de alucinaciones.")[cite: 2, 3, 4]
+    st.info("Generación de reporte técnico ejecutable y registro de auditoría/control de alucinaciones.")
+    
