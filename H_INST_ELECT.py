@@ -53,7 +53,7 @@ with col1:
     
     nombre_circuito = st.text_input("Nombre del Circuito:", "Circuito 1")
     tipo_carga = st.radio("Unidad de la Carga:", ["Watts (W)", "Volt-Amperes (VA)"], horizontal=True)
-    carga = st.number_input("Valor de la Carga Nominal:", min_value=0.0, value=1000.0, step=100.0)
+    carga = st.number_input("Valor de la Carga Nominal:", min_value=0.0, value=0.0, step=100.0)
     
     if tipo_carga == "Watts (W)":
         fp = st.number_input("Factor de Potencia (FP):", min_value=0.1, max_value=1.0, value=0.95)
@@ -66,7 +66,7 @@ with col1:
 
     with st.expander("🌟 Optimización por Caída de Tensión (Límite 3%)", expanded=True):
         canalizacion = st.selectbox("Canalización:", ["PVC / Aluminio (No Magnético)", "Acero (Magnético)"])
-        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=15.0)
+        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=0.0)
 
     if st.button("➕ Calcular y Agregar Derivado", type="primary"):
         # 1. Ampacidad Base
