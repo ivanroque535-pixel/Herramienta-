@@ -66,7 +66,7 @@ with col1:
 
     with st.expander("🌟 Optimización por Caída de Tensión (Límite 3%)", expanded=True):
         canalizacion = st.selectbox("Canalización:", ["PVC / Aluminio (No Magnético)", "Acero (Magnético)"])
-        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=0.0)
+        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=1.0)
 
     if st.button("➕ Calcular y Agregar Derivado", type="primary"):
         # 1. Ampacidad Base
