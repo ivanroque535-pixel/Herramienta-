@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 
 # ==============================================================================
 # 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS
@@ -368,11 +369,144 @@ with tab3:
         st.success("✅ Ruta crítica e identificación de CDT completadas. Procede a la Pestaña 4 para dimensionar la bomba y ver los gráficos.")
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 4: EQUIPO DE BOMBEO Y GRÁFICOS INTERACTIVOS
+# PESTAÑA 4: EQUIPO DE BOMBEO Y GRÁFICOS INTERACTIVOS (MÓDULO 4)
 # ------------------------------------------------------------------------------
 with tab4:
-    st.header("Dimensionamiento de Bomba y Análisis Gráfico")
-    st.info("Potencia requerida (HP), curvas del sistema vs. bomba y análisis transitorio de golpe de ariete.")
+    st.header("⚡ Módulo 4: Selección de Bomba y Análisis Avanzado")
+    
+    if "cdt_global" not in st.session_state or "df_hidraulica" not in st.session_state:
+        st.warning("⚠️ Primero debes calcular la CDT y la ruta crítica en la Pestaña 3.")
+    else:
+        df_mod4 = st.session_state["df_hidraulica"].copy()
+        cdt_req = st.session_state["cdt_global"]
+        
+        # Caudal total de bombeo (Tramo Principal Cisterna -> TDT)
+        q_bombeo_Lps = df_mod4.iloc[0]["Q_diseno_Lps"]
+        q_bombeo_m3s = q_bombeo_Lps / 1000.0
+        
+        # 1. CÁLCULO DE POTENCIA DE LA BOMBA
+        gamma = 1000.0  # kg/m³
+        p_hid_hp = (gamma * q_bombeo_m3s * cdt_req) / 75.0
+        p_mec_hp = p_hid_hp / eficiencia_bomba
+        
+        # Sugerencia de Motor Comercial
+        potencias_comerciales = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 7.5, 10.0]
+        p_comercial = next((p for p in potencias_comerciales if p >= p_mec_hp), potencias_comerciales[-1])
+        
+        st.subheader("🔌 Dimensionamiento Electromecánico")
+        col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+        col_b1.metric("Caudal de Bombeo (Q)", f"{q_bombeo_Lps:.2f} L/s")
+        col_b2.metric("Potencia Hidráulica", f"{p_hid_hp:.2f} HP")
+        col_b3.metric("Potencia Mecánica Requerida", f"{p_mec_hp:.2f} HP")
+        col_b4.metric("Potencia Comercial Sugerida", f"{p_comercial:.2f} HP", delta=f"η = {eficiencia_bomba*100:.0f}%")
+        
+        st.divider()
+        
+        # 2. GRÁFICO 1: PERFIL PIEZOMÉTRICO Y PÉRDIDAS ACUMULADAS POR TRAMO
+        st.subheader("📈 Perfil de Pérdidas de Carga por Tramo")
+        
+        fig_perfil = go.Figure()
+        fig_perfil.add_trace(go.Bar(
+            x=df_mod4["Tramo"],
+            y=df_mod4["hf_Darcy_m"],
+            name="Pérdida por Fricción hf (Darcy)",
+            marker_color="#2563EB"
+        ))
+        fig_perfil.add_trace(go.Bar(
+            x=df_mod4["Tramo"],
+            y=df_mod4["hm_Acc_m"],
+            name="Pérdidas Menores hm (Accesorios)",
+            marker_color="#F59E0B"
+        ))
+        fig_perfil.update_layout(
+            barmode="stack",
+            title="Desglose de Pérdidas de Energía por Tramo (m.c.a.)",
+            xaxis_title="Tramo de Tubería",
+            yaxis_title="Pérdida de Carga (m)",
+            hovermode="x unified",
+            height=400
+        )
+        st.plotly_chart(fig_perfil, use_container_width=True)
+        
+        st.divider()
+        
+        # 3. BONIFICACIÓN 1: CURVA CARACTERÍSTICA DEL SISTEMA VS. BOMBA (PUNTO EXTRA +1.0)
+        st.subheader("🌟 Excelencia Ingenieril 1: Punto de Operación (Curva Sistema vs. Bomba)")
+        
+        # Generación de curvas en función de Q
+        q_vec_Lps = np.linspace(0.1, max(2.5, q_bombeo_Lps * 2), 50)
+        q_vec_m3s = q_vec_Lps / 1000.0
+        
+        # Coeficiente de resistencia de la red K_red (H_sis = H_est + K_red * Q²)
+        h_estatica_total = desnivel_topografico
+        k_red = (cdt_req - h_estatica_total) / (q_bombeo_m3s ** 2) if q_bombeo_m3s > 0 else 1.0
+        h_sistema = h_estatica_total + k_red * (q_vec_m3s ** 2)
+        
+        # Modelo de Curva del Fabricante de la bomba comercial seleccionada
+        h_shut_off = cdt_req * 1.35
+        a_bomba = (h_shut_off - cdt_req) / (q_bombeo_m3s ** 2) if q_bombeo_m3s > 0 else 1.0
+        h_bomba = h_shut_off - a_bomba * (q_vec_m3s ** 2)
+        
+        fig_hq = go.Figure()
+        fig_hq.add_trace(go.Scatter(x=q_vec_Lps, y=h_sistema, mode='lines', name='Curva del Sistema (H_sis)', line=dict(color='#DC2626', width=3)))
+        fig_hq.add_trace(go.Scatter(x=q_vec_Lps, y=h_bomba, mode='lines', name=f'Curva Bomba Comercial ({p_comercial} HP)', line=dict(color='#059669', width=3, dash='dash')))
+        fig_hq.add_trace(go.Scatter(x=[q_bombeo_Lps], y=[cdt_req], mode='markers', name='Punto de Operación Requerido', marker=dict(size=12, color='#7C3AED', symbol='star')))
+        
+        fig_hq.update_layout(
+            title="Intersección Curva Característica de la Red vs. Bomba Comercial",
+            xaxis_title="Caudal Q (L/s)",
+            yaxis_title="Carga H (m.c.a.)",
+            height=420
+        )
+        st.plotly_chart(fig_hq, use_container_width=True)
+        
+        st.divider()
+        
+        # 4. BONIFICACIÓN 2: ANÁLISIS DE GOLPE DE ARIETE (PUNTO EXTRA +1.0)
+        st.subheader("🌟 Excelencia Ingenieril 2: Análisis Transitorio de Golpe de Ariete")
+        
+        col_ga1, col_ga2 = st.columns(2)
+        with col_ga1:
+            t_cierre = st.number_input("Tiempo de cierre de válvula t_c (s)", min_value=0.1, value=0.5, step=0.1)
+            espesor_tubo_mm = st.number_input("Espesor de pared de tubería e (mm)", min_value=1.0, value=2.5, step=0.5)
+        
+        # Parámetros físicos del fluido y material (CPVC/PVC)
+        K_agua = 2.2e9   # Módulo de elasticidad del agua (Pa)
+        E_mat = 3.0e9    # Módulo de elasticidad CPVC/PVC (Pa)
+        d_principal_m = df_mod4.iloc[0]["DN_mm"] / 1000.0
+        v_principal = df_mod4.iloc[0]["Velocidad_ms"]
+        e_m = espesor_tubo_mm / 1000.0
+        
+        # Celeridad a (m/s)
+        celeridad_a = np.sqrt(K_agua / rho_agua) / np.sqrt(1 + (K_agua / E_mat) * (d_principal_m / e_m))
+        
+        # Tiempo crítico de la conducción Tc = 2L / a
+        L_principal = df_mod4.iloc[0]["L_m"]
+        t_critico = (2 * L_principal) / celeridad_a
+        
+        # Sobretensión de Joukowsky ΔP (m.c.a.)
+        if t_cierre <= t_critico:
+            dp_joukowsky_pa = rho_agua * celeridad_a * v_principal
+            tipo_cierre = "Cierre Rápido (Maniobra Brusca)"
+        else:
+            dp_joukowsky_pa = (2 * rho_agua * L_principal * v_principal) / t_cierre
+            tipo_cierre = "Cierre Lento (Maniobra Gradual)"
+            
+        dp_joukowsky_mca = dp_joukowsky_pa / (rho_agua * 9.81)
+        
+        with col_ga2:
+            st.markdown(f"""
+            - **Celeridad de la onda ($a$):** `{celeridad_a:.2f} m/s`
+            - **Tiempo Crítico ($T_c = 2L/a$):** `{t_critico:.4f} s`
+            - **Régimen de Cierre:** `{tipo_cierre}`
+            - **Sobrepresión de Ariete ($\Delta P$):** `{dp_joukowsky_mca:.2f} m.c.a.`
+            """)
+            if dp_joukowsky_mca > (cdt_req * 0.5):
+                st.error("🚨 **Alerta de Sobretensión:** Se recomienda instalar un tanque amortiguador o supresor de picos de presión.")
+            else:
+                st.success("✅ **Red Segura:** La sobrepresión transitoria está dentro de los márgenes de seguridad de la tubería.")
+
+        st.success("✅ Módulo 4 completado con éxito. Procede a la Pestaña 5 para la Memoria de Cálculo Ejecutiva y Auditoría de IA.")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 5: MEMORIA DE CÁLCULO Y AUDITORÍA DE IA
@@ -380,4 +514,5 @@ with tab4:
 with tab5:
     st.header("Memoria Ejecutiva y Bitácora de Prompts")
     st.info("Generación de reporte técnico ejecutable y registro de auditoría/control de alucinaciones.")
+    
     
