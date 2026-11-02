@@ -42,7 +42,7 @@ def obtener_polos(tipo_sistema):
     else: return "3 polos"
 
 st.title("⚡ Módulo Integral de Caída de Potencial y Red Eléctrica (v2.0)")
-st.markdown("Redimensionamiento dinámico y Análisis Visual (Tabla 9, NOM-001-SEDE).")
+st.markdown("Redimensionamiento dinámico, Análisis Visual y Generación de Reportes (NOM-001-SEDE).")
 st.divider()
 
 col1, col2 = st.columns([1, 1.3]) 
@@ -53,7 +53,7 @@ with col1:
     
     nombre_circuito = st.text_input("Nombre del Circuito:", "Circuito 1")
     tipo_carga = st.radio("Unidad de la Carga:", ["Watts (W)", "Volt-Amperes (VA)"], horizontal=True)
-    carga = st.number_input("Valor de la Carga Nominal:", min_value=0.0, value=0.0, step=100.0)
+    carga = st.number_input("Valor de la Carga Nominal:", min_value=0.0, value=1000.0, step=100.0)
     
     if tipo_carga == "Watts (W)":
         fp = st.number_input("Factor de Potencia (FP):", min_value=0.1, max_value=1.0, value=0.95)
@@ -66,10 +66,9 @@ with col1:
 
     with st.expander("🌟 Optimización por Caída de Tensión (Límite 3%)", expanded=True):
         canalizacion = st.selectbox("Canalización:", ["PVC / Aluminio (No Magnético)", "Acero (Magnético)"])
-        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=1.0)
+        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=15.0)
 
     if st.button("➕ Calcular y Agregar Derivado", type="primary"):
-        # 1. Ampacidad Base
         if "Monofásico" in tipo_sistema:
             voltaje = 127
             corriente_nominal = carga / (voltaje * fp)
@@ -87,7 +86,6 @@ with col1:
         calibre_final = calibre_base
         diagnostico = "Ampacidad"
 
-        # 2. Iteración de Tensión (Derivados)
         if calibre_base in orden_calibres:
             angulo = math.acos(fp)
             seno_phi = math.sin(angulo)
@@ -129,7 +127,8 @@ with col1:
             "In (A)": round(corriente_nominal, 2),
             "Id (A)": round(corriente_diseno, 2),
             "ITM": itm_completo,
-            "Calibre": calibre_final,
+            "Calibre Base": calibre_base,
+            "Calibre Final": calibre_final,
             "Razón": diagnostico,
             "%e_deriv": round(str_e, 2)
         }
@@ -141,7 +140,8 @@ with col2:
     
     if len(st.session_state.circuitos) > 0:
         df_circuitos = pd.DataFrame(st.session_state.circuitos)
-        st.dataframe(df_circuitos.drop(columns=['Sistema']), use_container_width=True)
+        # Ocultamos columnas técnicas en la vista para no saturar
+        st.dataframe(df_circuitos.drop(columns=['Sistema', 'Calibre Base']), use_container_width=True)
         
         if st.button("🗑️ Borrar Todos"):
             st.session_state.circuitos = []
@@ -196,10 +196,11 @@ with col2:
         peor_e_deriv = max(c["%e_deriv"] for c in st.session_state.circuitos)
         e_total = e_alim + peor_e_deriv
         estado_global = "✅ APROBADO (≤5%)" if e_total <= 5.0 else "❌ RECHAZADO (>5%)"
+        itm_principal = f"{calcular_capacidad_itm(suma_id)} A ({obtener_polos(sistema_principal)})"
 
         st.subheader("3. Resultados del Sistema Integral")
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("ITM General", f"{calcular_capacidad_itm(suma_id)} A ({obtener_polos(sistema_principal)})")
+        m1.metric("ITM General", itm_principal)
         m2.metric("Calibre Troncal", calibre_alim_final)
         m3.metric("%e Alimentador", f"{e_alim:.2f}%")
         m4.metric("%e TOTAL", f"{e_total:.2f}%", estado_global)
@@ -216,25 +217,60 @@ if len(st.session_state.circuitos) > 0:
     
     with g1:
         st.subheader("Auditoría de Caída de Tensión (%e)")
-        # Preparamos datos para el gráfico de barras
         nombres = [c["Nombre"] for c in st.session_state.circuitos] + ["Alimentador Principal", "Sistema TOTAL"]
         caidas = [c["%e_deriv"] for c in st.session_state.circuitos] + [e_alim, e_total]
         colores = ['#1f77b4'] * len(st.session_state.circuitos) + ['#ff7f0e', '#d62728']
         
         fig_e = go.Figure(data=[go.Bar(x=nombres, y=caidas, marker_color=colores, text=[f"{val:.2f}%" for val in caidas], textposition='auto')])
-        
-        # Líneas de límite normativo
         fig_e.add_hline(y=3.0, line_dash="dash", line_color="red", annotation_text="Límite Derivados (3%)")
         fig_e.add_hline(y=5.0, line_dash="solid", line_color="darkred", annotation_text="Límite TOTAL (5%)")
-        
         fig_e.update_layout(yaxis_title="Caída de Tensión (%)", showlegend=False, template="plotly_white")
         st.plotly_chart(fig_e, use_container_width=True)
         
     with g2:
         st.subheader("Distribución de Cargas (Amperes)")
-        # Gráfico de pastel para ver el balance del tablero
         df_pie = pd.DataFrame(st.session_state.circuitos)
         fig_pie = px.pie(df_pie, values='In (A)', names='Nombre', hole=0.4, color_discrete_sequence=px.colors.sequential.Teal)
         fig_pie.update_traces(textposition='inside', textinfo='percent+label')
         fig_pie.update_layout(annotations=[dict(text=f'Total:<br>{suma_in:.1f} A', x=0.5, y=0.5, font_size=20, showarrow=False)], template="plotly_white")
         st.plotly_chart(fig_pie, use_container_width=True)
+
+    # --- MÓDULO 5: REPORTE EJECUTIVO Y MEMORIA DE CÁLCULO ---
+    st.divider()
+    st.header("5. Memoria de Cálculo Normativa")
+    
+    with st.expander("📄 Ver y Generar Reporte de Diseño (Clic aquí para abrir)"):
+        reporte_md = f"# Memoria de Cálculo - Instalación Eléctrica\n\n"
+        reporte_md += f"## 1. Evaluación de Circuitos Derivados (Límite 3%)\n\n"
+        
+        for c in st.session_state.circuitos:
+            reporte_md += f"### Circuito: {c['Nombre']}\n"
+            reporte_md += f"- **Sistema:** {c['Sistema']} | **Corriente Nominal (In):** {c['In (A)']} A | **Corriente Diseño (Id):** {c['Id (A)']} A\n"
+            reporte_md += f"- **Protección (ITM):** {c['ITM']}\n"
+            reporte_md += f"- **Calibre Inicial Térmico:** {c['Calibre Base']}\n"
+            if c['Calibre Base'] != c['Calibre Final']:
+                reporte_md += f"- **Redimensionamiento:** El calibre base excedía la caída de tensión permitida. El algoritmo de la Tabla 9 lo ajustó a **{c['Calibre Final']}**.\n"
+            else:
+                reporte_md += f"- **Redimensionamiento:** No requerido. El calibre cumple con los límites de tensión.\n"
+            reporte_md += f"- **Caída de Tensión Final:** {c['%e_deriv']}%\n"
+            reporte_md += f"- **Factor Dominante:** {c['Razón']}\n\n"
+            
+        reporte_md += f"## 2. Alimentador Principal (Límite Recomendado 2%)\n"
+        reporte_md += f"- **Sistema:** {sistema_principal}\n"
+        reporte_md += f"- **Corriente Total (In):** {suma_in:.2f} A | **Corriente de Diseño (Id):** {suma_id:.2f} A\n"
+        reporte_md += f"- **Protección General:** {itm_principal}\n"
+        reporte_md += f"- **Calibre Troncal Seleccionado:** {calibre_alim_final}\n"
+        reporte_md += f"- **Caída de Tensión del Alimentador:** {e_alim:.2f}%\n\n"
+        
+        reporte_md += f"## 3. Validación Integral del Sistema (NOM-001-SEDE)\n"
+        reporte_md += f"- **Caída Máxima Acumulada (%e_TOTAL = Alimentador + Peor Derivado):** {e_total:.2f}%\n"
+        reporte_md += f"- **Dictamen Global:** {estado_global}\n"
+        
+        st.markdown(reporte_md)
+        
+        st.download_button(
+            label="📥 Descargar Memoria de Cálculo (.txt)",
+            data=reporte_md,
+            file_name="Memoria_Calculo_NOM001.txt",
+            mime="text/plain"
+        )
