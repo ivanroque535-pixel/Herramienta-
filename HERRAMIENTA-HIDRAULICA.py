@@ -585,43 +585,6 @@ UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES - INSTALACIONES BÁSICAS
 
         st.divider()
 
-        # 2. BITÁCORA DE AUDITORÍA DE IA Y CONTROL DE ALUCINACIONES (RÚBRICA 20%)
-        st.subheader("🕵️ Bitácora de Auditoría de IA y Control de Alucinaciones")
-        st.caption("Documentación rigurosa de errores de la IA detectados durante el desarrollo (Fase 3 de la rúbrica).")
-
-        bitacora_default = pd.DataFrame([
-            {
-                "Iteración / Módulo": "Módulo 2 (Fricción)",
-                "Alucinación / Error Inicial de la IA": "Confusión en el cálculo del factor de fricción f usando Swamee-Jain por división entre cero en Re bajo.",
-                "Impacto Técnico": "Indeterminación matemática en tramos con gasto nulo o velocidad < 0.1 m/s.",
-                "Prompt de Corrección Aplicado": "Se implementó una condición lógica if Re < 2300 return 64/Re else Swamee-Jain."
-            },
-            {
-                "Iteración / Módulo": "Módulo 3 (Ruta Crítica)",
-                "Alucinación / Error Inicial de la IA": "La IA omitió sumar la carga estática ΔZ en la CDT, considerando únicamente las pérdidas por fricción.",
-                "Impacto Técnico": "Subdimensionamiento severo de la bomba (-5.20 m.c.a. de carga estática faltante).",
-                "Prompt de Corrección Aplicado": "Se forzó la fórmula CDT = H_estática + Σhf + Σhm + P_mínima en el script Python."
-            },
-            {
-                "Iteración / Módulo": "Módulo 1 (Diámetros)",
-                "Alucinación / Error Inicial de la IA": "Uso indiscriminado del Diámetro Nominal (DN) en lugar del Diámetro Interior Real (D_int).",
-                "Impacto Técnico": "Error en la velocidad calculada y en la pérdida de fricción hf al elevar D a la quinta potencia.",
-                "Prompt de Corrección Aplicado": "Se instruyó convertir DN a milímetros exactos de pared interna antes del cálculo de área A = πD²/4."
-            }
-        ])
-
-        df_bitacora = st.data_editor(
-            bitacora_default,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Iteración / Módulo": st.column_config.TextColumn("Módulo", required=True),
-                "Alucinación / Error Inicial de la IA": st.column_config.TextColumn("Error / Alucinación Identificada", width="large"),
-                "Impacto Técnico": st.column_config.TextColumn("Impacto Ingenieril", width="medium"),
-                "Prompt de Corrección Aplicado": st.column_config.TextColumn("Prompt / Corrección Aplicada", width="large")
-            }
-        )
-
         st.success("✅ ¡Felicidades! Todos los módulos interactivos de la aplicación han sido construidos e integrados exitosamente.")
     
     
