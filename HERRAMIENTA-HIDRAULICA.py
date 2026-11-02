@@ -166,11 +166,119 @@ with tab1:
     st.success(f"✅ Tramos procesados exitosamente ({len(df_procesado)} tramos registrados). Procede a la Pestaña 2 para la evaluación de pérdidas.")
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 2: EVALUACIÓN DUAL DE PÉRDIDAS POR FRICCIÓN
+# PESTAÑA 2: EVALUACIÓN DUAL DE PÉRDIDAS POR FRICCIÓN (MÓDULO 2)
 # ------------------------------------------------------------------------------
 with tab2:
-    st.header("Comparativa Simultánea: Darcy-Weisbach vs. Hazen-Williams")
-    st.info("Cálculo paralelo del factor de fricción (Colebrook-White/Swamee-Jain) y ecuación empírica de Hazen-Williams.")
+    st.header("⚖️ Módulo 2: Pérdidas por Fricción y Pérdidas Menores")
+    
+    if "df_hidraulica" not in st.session_state:
+        st.warning("⚠️ Primero debes ingresar y procesar los tramos en la Pestaña 1.")
+    else:
+        df_mod2 = st.session_state["df_hidraulica"].copy()
+        g = 9.81  # m/s²
+
+        # Funciones de cálculo hidráulico
+        def factor_friccion_swamee_jain(re, eps_m, d_m):
+            """Calcula el factor de fricción f usando Swamee-Jain (Colebrook-White aprox)"""
+            if re < 2300:
+                return 64.0 / re if re > 0 else 0.0  # Flujo laminar
+            else:
+                denom = np.log10((eps_m / (3.7 * d_m)) + (5.74 / (re ** 0.9)))
+                return 0.25 / (denom ** 2)
+
+        # Vectorización de cálculos por tramo
+        Re_list = []
+        f_list = []
+        hf_darcy_list = []
+        hf_hw_list = []
+        hm_list = []
+        htotal_darcy_list = []
+        alerta_v_list = []
+
+        for idx, row in df_mod2.iterrows():
+            L = row["L_m"]
+            D_m = row["DN_mm"] / 1000.0
+            v = row["Velocidad_ms"]
+            Q_m3s = row["Q_diseno_m3s"]
+            eps_m = row["Rugosidad_mm"] / 1000.0
+            C = row["Coef_C"]
+            K_acc = row["Acc_K_total"]
+
+            # Reynolds
+            Re = (v * D_m) / nu_agua if nu_agua > 0 else 0.0
+            Re_list.append(Re)
+
+            # Factor f (Darcy)
+            f = factor_friccion_swamee_jain(Re, eps_m, D_m)
+            f_list.append(f)
+
+            # Pérdida por fricción Darcy-Weisbach (m)
+            hf_darcy = f * (L / D_m) * ((v ** 2) / (2 * g)) if D_m > 0 else 0.0
+            hf_darcy_list.append(hf_darcy)
+
+            # Pérdida por fricción Hazen-Williams (m)
+            if D_m > 0 and C > 0:
+                hf_hw = 10.674 * L * (Q_m3s ** 1.852) / ((C ** 1.852) * (D_m ** 4.871))
+            else:
+                hf_hw = 0.0
+            hf_hw_list.append(hf_hw)
+
+            # Pérdidas menores hm (m)
+            hm = K_acc * ((v ** 2) / (2 * g))
+            hm_list.append(hm)
+
+            # Pérdida total por tramo (Darcy + hm)
+            htotal_darcy_list.append(hf_darcy + hm)
+
+            # Verificación de velocidad normativa
+            if v < 0.60:
+                alerta_v_list.append("⚠️ Baja (< 0.6 m/s)")
+            elif v > 2.50:
+                alerta_v_list.append("🚨 Alta (> 2.5 m/s)")
+            else:
+                alerta_v_list.append("✅ Ok (0.6 - 2.5 m/s)")
+
+        # Agregar columnas calculadas al DataFrame
+        df_mod2["Re"] = Re_list
+        df_mod2["Factor_f"] = f_list
+        df_mod2["hf_Darcy_m"] = hf_darcy_list
+        df_mod2["hf_HW_m"] = hf_hw_list
+        df_mod2["hm_Acc_m"] = hm_list
+        df_mod2["h_Total_Tramo_m"] = htotal_darcy_list
+        df_mod2["Estado_Velocidad"] = alerta_v_list
+
+        # Actualizar estado global de la app
+        st.session_state["df_hidraulica"] = df_mod2
+
+        # Despliegue de métricas resumidas
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("Pérdida Fricción Total (Darcy)", f"{df_mod2['hf_Darcy_m'].sum():.3f} m")
+        col_m2.metric("Pérdida Fricción Total (Hazen-Williams)", f"{df_mod2['hf_HW_m'].sum():.3f} m")
+        col_m3.metric("Diferencia Relativa Promedio", f"{abs(df_mod2['hf_Darcy_m'].sum() - df_mod2['hf_HW_m'].sum()) / df_mod2['hf_Darcy_m'].sum() * 100:.2f} %")
+
+        st.subheader("📊 Tabla Comparativa de Resultados Hidráulicos por Tramo")
+        
+        # Selección de columnas visibles ordenadas para presentación ejecutiva
+        columnas_ver = [
+            "Tramo", "Q_diseno_Lps", "Velocidad_ms", "Estado_Velocidad", 
+            "Re", "Factor_f", "hf_Darcy_m", "hf_HW_m", "hm_Acc_m", "h_Total_Tramo_m"
+        ]
+        
+        st.dataframe(
+            df_mod2[columnas_ver].style.format({
+                "Q_diseno_Lps": "{:.3f}",
+                "Velocidad_ms": "{:.2f}",
+                "Re": "{:,.0f}",
+                "Factor_f": "{:.4f}",
+                "hf_Darcy_m": "{:.3f}",
+                "hf_HW_m": "{:.3f}",
+                "hm_Acc_m": "{:.3f}",
+                "h_Total_Tramo_m": "{:.3f}"
+            }),
+            use_container_width=True
+        )
+
+        st.success("✅ Evaluación dual realizada. Procede a la Pestaña 3 para determinar la Ruta Crítica y CDT.")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL
