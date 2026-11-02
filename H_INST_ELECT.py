@@ -1,6 +1,8 @@
 import streamlit as st
 import math
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Calculadora NOM-001-SEDE (v2.0)", page_icon="⚡", layout="wide")
 
@@ -39,8 +41,8 @@ def obtener_polos(tipo_sistema):
     elif "Bifásico" in tipo_sistema: return "2 polos"
     else: return "3 polos"
 
-st.title("⚡ Módulo Integral de Caída de Potencial (v2.0)")
-st.markdown("Redimensionamiento dinámico de Alimentadores y Circuitos Derivados (Tabla 9, NOM-001-SEDE).")
+st.title("⚡ Módulo Integral de Caída de Potencial y Red Eléctrica (v2.0)")
+st.markdown("Redimensionamiento dinámico y Análisis Visual (Tabla 9, NOM-001-SEDE).")
 st.divider()
 
 col1, col2 = st.columns([1, 1.3]) 
@@ -107,7 +109,7 @@ with col1:
                 
                 caida_tension = (e_volts / voltaje) * 100
                 
-                if caida_tension <= 3.0: # Límite derivado
+                if caida_tension <= 3.0: 
                     calibre_final = calibre_actual
                     break
                 else:
@@ -119,7 +121,7 @@ with col1:
             elif calibre_final != calibre_base:
                 diagnostico = "Tensión"
                 
-            str_e = caida_tension # Guardamos el valor numérico para sumar después
+            str_e = caida_tension 
 
         nuevo_circuito = {
             "Nombre": nombre_circuito,
@@ -133,7 +135,7 @@ with col1:
         }
         st.session_state.circuitos.append(nuevo_circuito)
 
-# --- PANEL DERECHO: ALIMENTADOR PRINCIPAL Y SUMATORIA TOTAL ---
+# --- PANEL DERECHO: ALIMENTADOR PRINCIPAL ---
 with col2:
     st.header("2. Tramo Alimentador (Acometida a Tablero)")
     
@@ -151,13 +153,11 @@ with col2:
             "Monofásico (127 V)", "Bifásico (220 V)", "Trifásico (220 V)", "Trifásico (440 V)"
         ])
         
-        # Parámetros del Alimentador
         c1, c2, c3 = st.columns(3)
         conduit_alim = c1.selectbox("Tubería Alimentador:", ["PVC/Aluminio", "Acero"])
         long_alim = c2.number_input("Longitud L (m):", min_value=1.0, value=20.0)
         fp_alim = c3.number_input("FP Global:", min_value=0.5, max_value=1.0, value=0.90)
 
-        # Cálculos de Corriente Total
         suma_in = sum(c["In (A)"] for c in st.session_state.circuitos)
         suma_id = sum(c["Id (A)"] for c in st.session_state.circuitos)
         voltaje_alim = 127 if "Monofásico" in sistema_principal else 220 if "220" in sistema_principal else 440
@@ -165,7 +165,6 @@ with col2:
         calibre_alim_base = obtener_calibre_base(suma_id)
         calibre_alim_final = calibre_alim_base
         
-        # Módulo Iterativo para Alimentador
         e_alim = 0.0
         if calibre_alim_base in orden_calibres:
             idx = orden_calibres.index(calibre_alim_base)
@@ -188,31 +187,54 @@ with col2:
                 
                 e_alim = (ev / voltaje_alim) * 100
                 
-                if e_alim <= 2.0: # Límite recomendado alimentador
+                if e_alim <= 2.0: 
                     calibre_alim_final = cal_act
                     break
                 else:
                     idx += 1
 
-        # Diagnóstico Global %e_TOTAL
         peor_e_deriv = max(c["%e_deriv"] for c in st.session_state.circuitos)
         e_total = e_alim + peor_e_deriv
         estado_global = "✅ APROBADO (≤5%)" if e_total <= 5.0 else "❌ RECHAZADO (>5%)"
 
-        # Resultados del Alimentador
         st.subheader("3. Resultados del Sistema Integral")
-        
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("ITM General", f"{calcular_capacidad_itm(suma_id)} A ({obtener_polos(sistema_principal)})")
         m2.metric("Calibre Troncal", calibre_alim_final)
         m3.metric("%e Alimentador", f"{e_alim:.2f}%")
         m4.metric("%e TOTAL", f"{e_total:.2f}%", estado_global)
 
-        # Alertas Normativas
         if "440" in sistema_principal and any("127" in c["Sistema"] for c in st.session_state.circuitos):
             st.warning("⚠️ **Alerta:** Se requiere un **Transformador Reductor** (440V a 220Y/127V).")
-        if e_total > 5.0:
-            st.error("🚨 **Incumplimiento Normativo:** La caída de tensión acumulada supera el 5%. Aumenta los calibres manualmente o acorta distancias.")
             
-    else:
-        st.info("Agrega circuitos para evaluar la red integral.")
+# --- MÓDULO 4: VISUALIZACIÓN GRÁFICA ---
+if len(st.session_state.circuitos) > 0:
+    st.divider()
+    st.header("4. Visualización Gráfica del Sistema")
+    
+    g1, g2 = st.columns(2)
+    
+    with g1:
+        st.subheader("Auditoría de Caída de Tensión (%e)")
+        # Preparamos datos para el gráfico de barras
+        nombres = [c["Nombre"] for c in st.session_state.circuitos] + ["Alimentador Principal", "Sistema TOTAL"]
+        caidas = [c["%e_deriv"] for c in st.session_state.circuitos] + [e_alim, e_total]
+        colores = ['#1f77b4'] * len(st.session_state.circuitos) + ['#ff7f0e', '#d62728']
+        
+        fig_e = go.Figure(data=[go.Bar(x=nombres, y=caidas, marker_color=colores, text=[f"{val:.2f}%" for val in caidas], textposition='auto')])
+        
+        # Líneas de límite normativo
+        fig_e.add_hline(y=3.0, line_dash="dash", line_color="red", annotation_text="Límite Derivados (3%)")
+        fig_e.add_hline(y=5.0, line_dash="solid", line_color="darkred", annotation_text="Límite TOTAL (5%)")
+        
+        fig_e.update_layout(yaxis_title="Caída de Tensión (%)", showlegend=False, template="plotly_white")
+        st.plotly_chart(fig_e, use_container_width=True)
+        
+    with g2:
+        st.subheader("Distribución de Cargas (Amperes)")
+        # Gráfico de pastel para ver el balance del tablero
+        df_pie = pd.DataFrame(st.session_state.circuitos)
+        fig_pie = px.pie(df_pie, values='In (A)', names='Nombre', hole=0.4, color_discrete_sequence=px.colors.sequential.Teal)
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+        fig_pie.update_layout(annotations=[dict(text=f'Total:<br>{suma_in:.1f} A', x=0.5, y=0.5, font_size=20, showarrow=False)], template="plotly_white")
+        st.plotly_chart(fig_pie, use_container_width=True)
