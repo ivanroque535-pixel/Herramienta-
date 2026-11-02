@@ -83,10 +83,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD
 # ------------------------------------------------------------------------------
 with tab1:
-    # ------------------------------------------------------------------------------
-# PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD
-# ------------------------------------------------------------------------------
-with tab1:
     st.header("📋 Módulo 1: Topología de Red, Tramos y Simultaneidad")
     
     col_metodo, col_mat = st.columns([2, 2])
