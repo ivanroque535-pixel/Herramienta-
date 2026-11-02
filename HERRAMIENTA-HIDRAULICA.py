@@ -83,8 +83,104 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD
 # ------------------------------------------------------------------------------
 with tab1:
-    st.header("Entrada de Tramos de Tubería y Gastos")
-    st.info("Ingresa los datos topológicos de los tramos, accesorios, diámetros y demandas sanitarias.")
+    # ------------------------------------------------------------------------------
+# PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD
+# ------------------------------------------------------------------------------
+with tab1:
+    st.header("📋 Módulo 1: Topología de Red, Tramos y Simultaneidad")
+    
+    col_metodo, col_mat = st.columns([2, 2])
+    with col_metodo:
+        metodo_simultaneidad = st.selectbox(
+            "Selecciona el Método de Simultaneidad / Gasto de Diseño:",
+            ["Unidades Mueble de Hunter (Residencial MAPAS-CONAGUA)", "Coeficiente de Simultaneidad (ks = 1/√(n-1))", "Gasto Directo Conocido (Lps)"]
+        )
+    
+    with col_mat:
+        material_predeterminado = st.selectbox(
+            "Material Predeterminado de la Red:",
+            ["CPVC (ε = 0.0015 mm, C = 150)", "Cobre (ε = 0.0015 mm, C = 150)", "PVC (ε = 0.0015 mm, C = 150)", "Acero Galvanizado (ε = 0.15 mm, C = 120)"]
+        )
+    
+    # Asignación de rugosidad y C según material seleccionado por defecto
+    if "CPVC" in material_predeterminado or "Cobre" in material_predeterminado or "PVC" in material_predeterminado:
+        eps_default = 0.0015  # mm
+        c_default = 150
+    else:
+        eps_default = 0.15    # mm
+        c_default = 120
+
+    st.markdown("### 🛠️ Tabla de Configuración de Tramos")
+    st.caption("Puedes modificar directamente los datos de la tabla (longitudes, muebles, diámetros, accesorios).")
+
+    # Datos por defecto correspondientes al Caso A de la Rúbrica (2 Niveles, 8 Muebles)
+    datos_iniciales = pd.DataFrame([
+        {"Tramo": "Cisterna -> TDT (Subida Principal)", "L_m": 8.5, "DN_mm": 25.4, "UM": 24, "Q_directo_Lps": 0.0, "Acc_K_total": 3.5, "Desnivel_m": 5.2, "Mueble_Final": "Tanque Distribuidor"},
+        {"Tramo": "TDT -> Regadera 1 (P. Alta)", "L_m": 4.0, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.5, "Desnivel_m": 0.0, "Mueble_Final": "Regadera P.A. (Crítico P.A.)"},
+        {"Tramo": "TDT -> Sanitario 1 (P. Alta)", "L_m": 3.5, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.2, "Desnivel_m": 0.0, "Mueble_Final": "Sanitario P.A."},
+        {"Tramo": "TDT -> Lavabo 1 (P. Alta)", "L_m": 3.0, "DN_mm": 12.7, "UM": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 1.0, "Desnivel_m": 0.0, "Mueble_Final": "Lavabo P.A."},
+        {"Tramo": "TDT -> Regadera 2 (P. Baja)", "L_m": 6.0, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.8, "Desnivel_m": -2.6, "Mueble_Final": "Regadera P.B."},
+        {"Tramo": "TDT -> Sanitario 2 (P. Baja)", "L_m": 5.5, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.2, "Desnivel_m": -2.6, "Mueble_Final": "Sanitario P.B."},
+        {"Tramo": "TDT -> Lavabo 2 (P. Baja)", "L_m": 5.0, "DN_mm": 12.7, "UM": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 1.0, "Desnivel_m": -2.6, "Mueble_Final": "Lavabo P.B."},
+        {"Tramo": "TDT -> Fregadero (P. Baja)", "L_m": 7.0, "DN_mm": 19.05, "UM": 2, "Q_directo_Lps": 0.0, "Acc_K_total": 1.5, "Desnivel_m": -2.6, "Mueble_Final": "Fregadero Cocina"}
+    ])
+
+    df_tramos = st.data_editor(
+        datos_iniciales,
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "Tramo": st.column_config.TextColumn("Identificador Tramo", required=True),
+            "L_m": st.column_config.NumberColumn("Longitud L (m)", min_value=0.1, format="%.2f"),
+            "DN_mm": st.column_config.NumberColumn("Diámetro Real D (mm)", min_value=6.0, format="%.1f"),
+            "UM": st.column_config.NumberColumn("Unidades Mueble (UM)", min_value=0, step=1),
+            "Q_directo_Lps": st.column_config.NumberColumn("Q Directo (L/s)", min_value=0.0, format="%.3f"),
+            "Acc_K_total": st.column_config.NumberColumn("Σ Coeficientes K Accesorios", min_value=0.0, format="%.2f"),
+            "Desnivel_m": st.column_config.NumberColumn("ΔZ Topográfico (m)", format="%.2f"),
+            "Mueble_Final": st.column_config.TextColumn("Punto de Descarga / Mueble")
+        }
+    )
+
+    # --------------------------------------------------------------------------
+    # LÓGICA DE PROCESAMIENTO DE CAUDALES Y SIMULTANEIDAD
+    # --------------------------------------------------------------------------
+    def calcular_gasto_hunter(um):
+        """Conversión polinómica exacta de Unidades Mueble Hunter a L/s (Agua Fría/Caliente)"""
+        if um <= 0:
+            return 0.0
+        elif um <= 10:
+            return 0.12 * (um ** 0.65)
+        elif um <= 50:
+            return 0.25 * (um ** 0.45)
+        else:
+            return 0.40 * (um ** 0.38)
+
+    df_procesado = df_tramos.copy()
+    
+    # Asignación de rugosidad y C al dataframe
+    df_procesado["Rugosidad_mm"] = eps_default
+    df_procesado["Coef_C"] = c_default
+    
+    # Cálculo de Caudal de Diseño Q (L/s y m³/s)
+    if "Hunter" in metodo_simultaneidad:
+        df_procesado["Q_diseno_Lps"] = df_procesado["UM"].apply(calcular_gasto_hunter)
+    elif "ks" in metodo_simultaneidad:
+        # Coeficiente ks = 1 / sqrt(n - 1)
+        df_procesado["n_muebles"] = df_procesado["UM"].apply(lambda x: max(1, x))
+        df_procesado["ks"] = df_procesado["n_muebles"].apply(lambda n: 1.0 if n <= 1 else 1.0 / np.sqrt(n - 1))
+        # Asumiendo gasto base unitario de 0.15 L/s por mueble en simulación ks
+        df_procesado["Q_diseno_Lps"] = df_procesado["n_muebles"] * 0.15 * df_procesado["ks"]
+    else:
+        df_procesado["Q_diseno_Lps"] = df_procesado["Q_directo_Lps"]
+
+    df_procesado["Q_diseno_m3s"] = df_procesado["Q_diseno_Lps"] / 1000.0
+    df_procesado["Area_m2"] = np.pi * ((df_procesado["DN_mm"] / 1000.0) ** 2) / 4.0
+    df_procesado["Velocidad_ms"] = df_procesado["Q_diseno_m3s"] / df_procesado["Area_m2"]
+
+    # Guardar en sesión de Streamlit para consumo de los siguientes módulos
+    st.session_state["df_hidraulica"] = df_procesado
+
+    st.success(f"✅ Tramos procesados exitosamente ({len(df_procesado)} tramos registrados). Procede a la Pestaña 2 para la evaluación de pérdidas.")
     # Estructura del formulario editable para el Módulo 1 (se implementará en la Fase 3)
 
 # ------------------------------------------------------------------------------
