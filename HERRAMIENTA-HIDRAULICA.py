@@ -281,11 +281,91 @@ with tab2:
         st.success("✅ Evaluación dual realizada. Procede a la Pestaña 3 para determinar la Ruta Crítica y CDT.")
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL
+# PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL (MÓDULO 3)
 # ------------------------------------------------------------------------------
 with tab3:
-    st.header("Acumulación de Presión y Punto Desfavorable")
-    st.info("Identificación automática de la ruta crítica y cálculo global de pérdidas acumuladas.")
+    st.header("🗺️ Módulo 3: Ruta Crítica y Carga Dinámica Total (CDT)")
+    
+    if "df_hidraulica" not in st.session_state or "h_Total_Tramo_m" not in st.session_state["df_hidraulica"].columns:
+        st.warning("⚠️ Primero debes procesar la evaluación de pérdidas en la Pestaña 2.")
+    else:
+        df_mod3 = st.session_state["df_hidraulica"].copy()
+        
+        # Mueble o Tramo Principal (Subida a TDT)
+        tramo_principal = df_mod3.iloc[0]
+        h_perdida_principal = tramo_principal["h_Total_Tramo_m"]
+        dz_principal = tramo_principal["Desnivel_m"]
+        
+        # Análisis por cada punto de descarga / mueble
+        reporte_muebles = []
+        
+        for idx, row in df_mod3.iterrows():
+            if idx == 0:
+                continue  # El primer tramo es la conducción principal (Cisterna -> TDT)
+            
+            mueble = row["Mueble_Final"]
+            tramo_nombre = row["Tramo"]
+            
+            # Acumulación de pérdidas: Tramo Principal + Tramo Específico del Mueble
+            hf_acum = tramo_principal["hf_Darcy_m"] + row["hf_Darcy_m"]
+            hm_acum = tramo_principal["hm_Acc_m"] + row["hm_Acc_m"]
+            h_loss_total = hf_acum + hm_acum
+            
+            # Carga estática acumulada hacia el mueble (m)
+            h_estatica_mueble = dz_principal + row["Desnivel_m"]
+            
+            # CDT requerida exclusivamente para abastecer este mueble específico (m.c.a.)
+            cdt_mueble = h_estatica_mueble + h_loss_total + p_min_requerida
+            
+            reporte_muebles.append({
+                "Mueble / Descarga": mueble,
+                "Trayectoria": f"{tramo_principal['Tramo']} ➔ {tramo_nombre}",
+                "ΔZ Estático (m)": h_estatica_mueble,
+                "Σ hf (m)": hf_acum,
+                "Σ hm (m)": hm_acum,
+                "Pérdida Total (m)": h_loss_total,
+                "Presión Mín. Requerida (m.c.a.)": p_min_requerida,
+                "CDT Requerida (m.c.a.)": cdt_mueble
+            })
+            
+        df_rutas = pd.DataFrame(reporte_muebles)
+        
+        # Detección Algorítmica de la Ruta Crítica (Punto con mayor demanda de CDT)
+        idx_critico = df_rutas["CDT Requerida (m.c.a.)"].idxmax()
+        ruta_critica_info = df_rutas.loc[idx_critico]
+        
+        cdt_global = ruta_critica_info["CDT Requerida (m.c.a.)"]
+        st.session_state["cdt_global"] = cdt_global
+        st.session_state["df_rutas"] = df_rutas
+        st.session_state["mueble_critico"] = ruta_critica_info["Mueble / Descarga"]
+        
+        # Despliegue de Resultados Ejecutivos
+        st.subheader("🎯 Punto Crítico y Carga Dinámica Total (CDT)")
+        
+        col_c1, col_c2, col_c3 = st.columns(3)
+        col_c1.metric("📌 Mueble Crítico (Más Desfavorable)", f"{ruta_critica_info['Mueble / Descarga']}")
+        col_c2.metric("🏔️ Carga Estática Máxima (ΔZ)", f"{ruta_critica_info['ΔZ Estático (m)']:.2f} m")
+        col_c3.metric("💥 CDT Sistema Requerida", f"{cdt_global:.2f} m.c.a.", delta=f"{(cdt_global * 1.4223):.2f} PSI")
+        
+        st.markdown(f"""
+        > **Resultado de Ruta Crítica:**  
+        > El mueble **{ruta_critica_info['Mueble / Descarga']}** rige el diseño electromecánico por requerir la máxima Carga Dinámica Total (**{cdt_global:.2f} m.c.a.**), considerando una presión de salida garantizada de **{p_min_requerida:.2f} m.c.a.**
+        """)
+        
+        st.subheader("📋 Resumen de Cargas Topológicas y Presiones por Mueble")
+        st.dataframe(
+            df_rutas.style.format({
+                "ΔZ Estático (m)": "{:.2f}",
+                "Σ hf (m)": "{:.3f}",
+                "Σ hm (m)": "{:.3f}",
+                "Pérdida Total (m)": "{:.3f}",
+                "Presión Mín. Requerida (m.c.a.)": "{:.2f}",
+                "CDT Requerida (m.c.a.)": "{:.2f}"
+            }).highlight_max(subset=["CDT Requerida (m.c.a.)"], color="#FCA5A5"),
+            use_container_width=True
+        )
+
+        st.success("✅ Ruta crítica e identificación de CDT completadas. Procede a la Pestaña 4 para dimensionar la bomba y ver los gráficos.")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 4: EQUIPO DE BOMBEO Y GRÁFICOS INTERACTIVOS
