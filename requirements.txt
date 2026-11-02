@@ -4,3 +4,7 @@ numpy
 matplotlib
 pandas
 openpyxl
+#para la electrica
+streamlit
+pandas
+plotly
