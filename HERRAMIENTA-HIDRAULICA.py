@@ -81,7 +81,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD (MÓDULO 1)
+# PESTAÑA 1: ENTRADA DE DATOS Y SIMULTANEIDAD (OPTIMIZADO)
 # ------------------------------------------------------------------------------
 with tab1:
     st.header("📋 Módulo 1: Topología de Red, Tramos y Simultaneidad")
@@ -90,13 +90,22 @@ with tab1:
     with col_metodo:
         metodo_simultaneidad = st.selectbox(
             "Selecciona el Método de Simultaneidad / Gasto de Diseño:",
-            ["Unidades Mueble de Hunter (Residencial MAPAS-CONAGUA)", "Coeficiente de Simultaneidad (ks = 1/√(n-1))", "Gasto Directo Conocido (Lps)"]
+            [
+                "Unidades Mueble de Hunter (Residencial MAPAS-CONAGUA)",
+                "Coeficiente de Simultaneidad (ks = 1/√(n-1))",
+                "Gasto Directo Conocido (Lps)"
+            ]
         )
     
     with col_mat:
         material_predeterminado = st.selectbox(
-            "Material Predeterminado de la Red:",
-            ["CPVC (ε = 0.0015 mm, C = 150)", "Cobre (ε = 0.0015 mm, C = 150)", "PVC (ε = 0.0015 mm, C = 150)", "Acero Galvanizado (ε = 0.15 mm, C = 120)"]
+            "Material Base de la Red:",
+            [
+                "CPVC (ε = 0.0015 mm, C = 150)",
+                "Cobre (ε = 0.0015 mm, C = 150)",
+                "PVC (ε = 0.0015 mm, C = 150)",
+                "Acero Galvanizado (ε = 0.15 mm, C = 120)"
+            ]
         )
     
     if "CPVC" in material_predeterminado or "Cobre" in material_predeterminado or "PVC" in material_predeterminado:
@@ -106,18 +115,18 @@ with tab1:
         eps_default = 0.15    # mm
         c_default = 120
 
-    st.markdown("### 🛠️ Tabla de Configuración de Tramos")
-    st.caption("Puedes modificar directamente los datos de la tabla (longitudes, muebles, diámetros, accesorios).")
+    st.markdown("### 🛠️ Tabla Interactiva de Tramos de Tubería y Accesorios")
+    st.caption("Nota: Si modificas las UM de los muebles secundario, la conducción principal recalculará automáticamente su gasto acumulado.")
 
     datos_iniciales = pd.DataFrame([
-        {"Tramo": "Cisterna -> TDT (Subida Principal)", "L_m": 8.5, "DN_mm": 25.4, "UM": 24, "Q_directo_Lps": 0.0, "Acc_K_total": 3.5, "Desnivel_m": 5.2, "Mueble_Final": "Tanque Distribuidor"},
-        {"Tramo": "TDT -> Regadera 1 (P. Alta)", "L_m": 4.0, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.5, "Desnivel_m": 0.0, "Mueble_Final": "Regadera P.A. (Crítico P.A.)"},
-        {"Tramo": "TDT -> Sanitario 1 (P. Alta)", "L_m": 3.5, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.2, "Desnivel_m": 0.0, "Mueble_Final": "Sanitario P.A."},
-        {"Tramo": "TDT -> Lavabo 1 (P. Alta)", "L_m": 3.0, "DN_mm": 12.7, "UM": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 1.0, "Desnivel_m": 0.0, "Mueble_Final": "Lavabo P.A."},
-        {"Tramo": "TDT -> Regadera 2 (P. Baja)", "L_m": 6.0, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.8, "Desnivel_m": -2.6, "Mueble_Final": "Regadera P.B."},
-        {"Tramo": "TDT -> Sanitario 2 (P. Baja)", "L_m": 5.5, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Acc_K_total": 1.2, "Desnivel_m": -2.6, "Mueble_Final": "Sanitario P.B."},
-        {"Tramo": "TDT -> Lavabo 2 (P. Baja)", "L_m": 5.0, "DN_mm": 12.7, "UM": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 1.0, "Desnivel_m": -2.6, "Mueble_Final": "Lavabo P.B."},
-        {"Tramo": "TDT -> Fregadero (P. Baja)", "L_m": 7.0, "DN_mm": 19.05, "UM": 2, "Q_directo_Lps": 0.0, "Acc_K_total": 1.5, "Desnivel_m": -2.6, "Mueble_Final": "Fregadero Cocina"}
+        {"Tramo": "Cisterna -> TDT (Subida Principal)", "L_m": 8.5, "DN_mm": 25.4, "UM": 0, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 3.5, "Desnivel_m": 5.20, "Es_Principal": True, "Mueble_Final": "Tanque Distribuidor"},
+        {"Tramo": "TDT -> Regadera 1 (P. Alta)", "L_m": 4.0, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 1.5, "Desnivel_m": 0.00, "Es_Principal": False, "Mueble_Final": "Regadera P.A. (Crítico P.A.)"},
+        {"Tramo": "TDT -> Sanitario 1 (P. Alta)", "L_m": 3.5, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 1.2, "Desnivel_m": 0.00, "Es_Principal": False, "Mueble_Final": "Sanitario P.A."},
+        {"Tramo": "TDT -> Lavabo 1 (P. Alta)", "L_m": 3.0, "DN_mm": 12.70, "UM": 1, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 1.0, "Desnivel_m": 0.00, "Es_Principal": False, "Mueble_Final": "Lavabo P.A."},
+        {"Tramo": "TDT -> Regadera 2 (P. Baja)", "L_m": 6.0, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 1.8, "Desnivel_m": -2.60, "Es_Principal": False, "Mueble_Final": "Regadera P.B."},
+        {"Tramo": "TDT -> Sanitario 2 (P. Baja)", "L_m": 5.5, "DN_mm": 19.05, "UM": 3, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 1.2, "Desnivel_m": -2.60, "Es_Principal": False, "Mueble_Final": "Sanitario P.B."},
+        {"Tramo": "TDT -> Lavabo 2 (P. Baja)", "L_m": 5.0, "DN_mm": 12.70, "UM": 1, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 1.0, "Desnivel_m": -2.60, "Es_Principal": False, "Mueble_Final": "Lavabo P.B."},
+        {"Tramo": "TDT -> Fregadero (P. Baja)", "L_m": 7.0, "DN_mm": 19.05, "UM": 2, "Q_directo_Lps": 0.0, "Rugosidad_mm": eps_default, "Coef_C": c_default, "Acc_K_total": 1.5, "Desnivel_m": -2.60, "Es_Principal": False, "Mueble_Final": "Fregadero Cocina"}
     ])
 
     df_tramos = st.data_editor(
@@ -130,12 +139,18 @@ with tab1:
             "DN_mm": st.column_config.NumberColumn("Diámetro Real D (mm)", min_value=6.0, format="%.1f"),
             "UM": st.column_config.NumberColumn("Unidades Mueble (UM)", min_value=0, step=1),
             "Q_directo_Lps": st.column_config.NumberColumn("Q Directo (L/s)", min_value=0.0, format="%.3f"),
-            "Acc_K_total": st.column_config.NumberColumn("Σ Coeficientes K Accesorios", min_value=0.0, format="%.2f"),
+            "Rugosidad_mm": st.column_config.NumberColumn("Rugosidad ε (mm)", min_value=0.0001, format="%.4f"),
+            "Coef_C": st.column_config.NumberColumn("Coeficiente C (HW)", min_value=50, max_value=160, step=1),
+            "Acc_K_total": st.column_config.NumberColumn("Σ K Accesorios", min_value=0.0, format="%.2f"),
             "Desnivel_m": st.column_config.NumberColumn("ΔZ Topográfico (m)", format="%.2f"),
+            "Es_Principal": st.column_config.CheckboxColumn("¿Tramo Principal?", default=False),
             "Mueble_Final": st.column_config.TextColumn("Punto de Descarga / Mueble")
         }
     )
 
+    # --------------------------------------------------------------------------
+    # LÓGICA REFINADA DE PROCESAMIENTO Y ACUMULACIÓN TOPOLÓGICA
+    # --------------------------------------------------------------------------
     def calcular_gasto_hunter(um):
         if um <= 0:
             return 0.0
@@ -147,9 +162,12 @@ with tab1:
             return 0.40 * (um ** 0.38)
 
     df_procesado = df_tramos.copy()
-    df_procesado["Rugosidad_mm"] = eps_default
-    df_procesado["Coef_C"] = c_default
-    
+
+    # Sumatoria automática de UM para los tramos marcados como principales
+    um_derivaciones = df_procesado[df_procesado["Es_Principal"] == False]["UM"].sum()
+    df_procesado.loc[df_procesado["Es_Principal"] == True, "UM"] = um_derivaciones
+
+    # Cálculo de Caudales de Diseño
     if "Hunter" in metodo_simultaneidad:
         df_procesado["Q_diseno_Lps"] = df_procesado["UM"].apply(calcular_gasto_hunter)
     elif "ks" in metodo_simultaneidad:
@@ -164,8 +182,9 @@ with tab1:
     df_procesado["Velocidad_ms"] = df_procesado["Q_diseno_m3s"] / df_procesado["Area_m2"]
 
     st.session_state["df_hidraulica"] = df_procesado
-    st.success(f"✅ Tramos procesados exitosamente ({len(df_procesado)} tramos registrados). Procede a la Pestaña 2 para la evaluación de pérdidas.")
-
+    
+    st.info(f"💡 **Sumatoria Topológica Automatizada:** Tramo Principal procesado con **{um_derivaciones} Unidades Mueble (UM)** acumuladas.")
+    st.success(f"✅ Tramos procesados exitosamente ({len(df_procesado)} tramos). Procede a la Pestaña 2 para la evaluación dual de pérdidas.")
 # ------------------------------------------------------------------------------
 # PESTAÑA 2: EVALUACIÓN DUAL DE PÉRDIDAS POR FRICCIÓN (MÓDULO 2)
 # ------------------------------------------------------------------------------
