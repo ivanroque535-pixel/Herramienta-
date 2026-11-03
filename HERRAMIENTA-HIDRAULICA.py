@@ -101,7 +101,20 @@ with tab1:
     eps_default = 0.0015 if "CPVC" in material_predeterminado else 0.15
     c_default = 150 if "CPVC" in material_predeterminado else 120
 
-    st.markdown("### 🛠️ Tabla de Configuración de Tramos (Desde / Hasta)")
+    # --- BOTÓN PARA LIMPIAR TABLA ---
+    col_tit, col_limpiar = st.columns([4, 1])
+    with col_tit:
+        st.markdown("### 🛠️ Tabla de Configuración de Tramos (Desde / Hasta)")
+        st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble.")
+    
+    with col_limpiar:
+        if st.button("🗑️ Limpiar Tabla", type="primary", use_container_width=True):
+            # Reiniciamos la tabla con la estructura vacía
+            st.session_state["datos_red"] = pd.DataFrame(columns=[
+                "Desde", "Hasta", "L_m", "DN_mm", "UM_Terminales", "Q_directo_Lps", "Acc_K_total", "Desnivel_m"
+            ])
+            st.rerun() # Forzamos recarga para que el st.data_editor se blanquee
+    # --------------------------------
     st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble. El sistema acumulará las UM hacia atrás (aguas abajo) automáticamente para los tramos principales.")
 
     # Precarga basada en tu lógica de ramificación
