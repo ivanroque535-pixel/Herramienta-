@@ -101,40 +101,23 @@ with tab1:
     eps_default = 0.0015 if "CPVC" in material_predeterminado else 0.15
     c_default = 150 if "CPVC" in material_predeterminado else 120
 
-    # 1. BOTÓN DE LIMPIEZA Y TÍTULO (Sin texto duplicado)
-    col_tit, col_limpiar = st.columns([4, 1])
-    with col_tit:
-        st.markdown("### 🛠️ Tabla de Configuración de Tramos (Desde / Hasta)")
-        st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble. El sistema acumulará las UM hacia atrás (aguas abajo) automáticamente para los tramos principales.")
-    
-    with col_limpiar:
-        if st.button("🗑️ Limpiar Tabla", type="primary", use_container_width=True):
-            # Reiniciamos la variable de estado con las columnas vacías
-            st.session_state["datos_red"] = pd.DataFrame(columns=[
-                "Desde", "Hasta", "L_m", "DN_mm", "UM_Terminales", "Q_directo_Lps", "Acc_K_total", "Desnivel_m"
-            ])
-            # Borramos la caché del widget para forzar el blanqueo visual
-            if "editor_tramos" in st.session_state:
-                del st.session_state["editor_tramos"]
-            st.rerun()
+    st.markdown("### 🛠️ Tabla de Configuración de Tramos (Desde / Hasta)")
+    st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble. El sistema acumulará las UM hacia atrás (aguas abajo) automáticamente para los tramos principales.")
 
-    # 2. INICIALIZACIÓN EN LA MEMORIA (Solo se carga si no existe)
-    if "datos_red" not in st.session_state:
-        st.session_state["datos_red"] = pd.DataFrame([
-            {"Desde": "A", "Hasta": "B", "L_m": 2.07, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 0.98, "Desnivel_m": 5.20},
-            {"Desde": "B", "Hasta": "Calentador", "L_m": 1.29, "DN_mm": 38.1, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.46, "Desnivel_m": 0.00},
-            {"Desde": "B", "Hasta": "C", "L_m": 4.44, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 2.88, "Desnivel_m": 0.00},
-            {"Desde": "C", "Hasta": "D", "L_m": 1.36, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.63, "Desnivel_m": 0.00},
-            {"Desde": "D", "Hasta": "Lavadora", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00},
-            {"Desde": "D", "Hasta": "E", "L_m": 0.23, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.45, "Desnivel_m": 0.00},
-            {"Desde": "E", "Hasta": "Lavadero", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00}
-        ])
+    # Precarga basada en tu lógica de ramificación
+    datos_iniciales = pd.DataFrame([
+        {"Desde": "A", "Hasta": "B", "L_m": 2.07, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 0.98, "Desnivel_m": 5.20},
+        {"Desde": "B", "Hasta": "Calentador", "L_m": 1.29, "DN_mm": 38.1, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.46, "Desnivel_m": 0.00},
+        {"Desde": "B", "Hasta": "C", "L_m": 4.44, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 2.88, "Desnivel_m": 0.00},
+        {"Desde": "C", "Hasta": "D", "L_m": 1.36, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.63, "Desnivel_m": 0.00},
+        {"Desde": "D", "Hasta": "Lavadora", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00},
+        {"Desde": "D", "Hasta": "E", "L_m": 0.23, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.45, "Desnivel_m": 0.00},
+        {"Desde": "E", "Hasta": "Lavadero", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00}
+    ])
 
-    # 3. EDITOR DE DATOS (Ahora conectado a la memoria correctamente)
     df_tramos = st.data_editor(
-        st.session_state["datos_red"],
+        datos_iniciales,
         num_rows="dynamic",
-        key="editor_tramos",
         use_container_width=True,
         column_config={
             "Desde": st.column_config.TextColumn("Nodo Inicio (Desde)", required=True),
@@ -147,13 +130,10 @@ with tab1:
             "Desnivel_m": st.column_config.NumberColumn("ΔZ Topográfico (m)", format="%.2f")
         }
     )
-    
-    # 4. ACTUALIZAR ESTADO (Mantiene tus cambios si agregas filas)
-    st.session_state["datos_red"] = df_tramos
 
     # --------------------------------------------------------------------------
     # LÓGICA TOPOLÓGICA (ACUMULACIÓN DE MUEBLES AGUAS ABAJO)
-    # (El código continúa aquí abajo con "adj = {}" como lo tenías antes...)
+    # --------------------------------------------------------------------------
     adj = {}
     um_directas = {}
     
@@ -236,35 +216,28 @@ with tab1:
     st.dataframe(df_procesado[["Tramo", "UM_Terminales", "UM", "Q_diseno_Lps", "Acc_K_total"]].rename(columns={"UM": "UM Acumuladas (Aguas Abajo)"}), use_container_width=True)
     st.success(f"✅ Tramos y acumulaciones procesadas ({len(df_procesado)} tramos). Procede a la Pestaña 2.")
     
-   # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # PESTAÑA 2: EVALUACIÓN DUAL DE PÉRDIDAS POR FRICCIÓN (MÓDULO 2)
 # ------------------------------------------------------------------------------
 with tab2:
     st.header("⚖️ Módulo 2: Pérdidas por Fricción y Menores")
     
-    # REEMPLAZA EL IF POR ESTE:
-    if "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty:
-        st.warning("⚠️ La tabla está vacía. Primero debes configurar la red en la Pestaña 1.")
+    if "df_hidraulica" not in st.session_state:
+        st.warning("⚠️ Primero debes configurar la red y procesar los tramos en la Pestaña 1.")
     else:
         df_mod2 = st.session_state["df_hidraulica"].copy()
-        # ... (el resto de tu código del módulo 2 sigue igual)
-        # Funciones de cálculo hidráulico
+        g = 9.81  # Gravedad (m/s²)
+
         def factor_friccion_swamee_jain(re, eps_m, d_m):
-            """Calcula el factor de fricción f usando Swamee-Jain (Colebrook-White aprox)"""
+            """Calcula el factor de fricción f usando la ecuación explícita de Swamee-Jain"""
             if re < 2300:
-                return 64.0 / re if re > 0 else 0.0  # Flujo laminar
+                return 64.0 / re if re > 0 else 0.0  # Régimen laminar
             else:
                 denom = np.log10((eps_m / (3.7 * d_m)) + (5.74 / (re ** 0.9)))
                 return 0.25 / (denom ** 2)
 
-        # Vectorización de cálculos por tramo
-        Re_list = []
-        f_list = []
-        hf_darcy_list = []
-        hf_hw_list = []
-        hm_list = []
-        htotal_darcy_list = []
-        alerta_v_list = []
+        # Listas para almacenar resultados iterativos
+        Re_list, f_list, hf_darcy_list, hf_hw_list, hm_list, htotal_darcy_list, alerta_v_list = [], [], [], [], [], [], []
 
         for idx, row in df_mod2.iterrows():
             L = row["L_m"]
@@ -275,41 +248,41 @@ with tab2:
             C = row["Coef_C"]
             K_acc = row["Acc_K_total"]
 
-            # Reynolds
+            # 1. Número de Reynolds
             Re = (v * D_m) / nu_agua if nu_agua > 0 else 0.0
             Re_list.append(Re)
 
-            # Factor f (Darcy)
+            # 2. Factor de Fricción (Darcy)
             f = factor_friccion_swamee_jain(Re, eps_m, D_m)
             f_list.append(f)
 
-            # Pérdida por fricción Darcy-Weisbach (m)
+            # 3. Pérdida por fricción Darcy-Weisbach
             hf_darcy = f * (L / D_m) * ((v ** 2) / (2 * g)) if D_m > 0 else 0.0
             hf_darcy_list.append(hf_darcy)
 
-            # Pérdida por fricción Hazen-Williams (m)
+            # 4. Pérdida por fricción Hazen-Williams
             if D_m > 0 and C > 0:
                 hf_hw = 10.674 * L * (Q_m3s ** 1.852) / ((C ** 1.852) * (D_m ** 4.871))
             else:
                 hf_hw = 0.0
             hf_hw_list.append(hf_hw)
 
-            # Pérdidas menores hm (m)
+            # 5. Pérdidas Menores (por Coeficiente K)
             hm = K_acc * ((v ** 2) / (2 * g))
             hm_list.append(hm)
 
-            # Pérdida total por tramo (Darcy + hm)
+            # 6. Pérdida Total (Darcy + hm)
             htotal_darcy_list.append(hf_darcy + hm)
 
-            # Verificación de velocidad normativa
+            # 7. Verificación Normativa de Velocidad (MAPAS-CONAGUA)
             if v < 0.60:
                 alerta_v_list.append("⚠️ Baja (< 0.6 m/s)")
             elif v > 2.50:
                 alerta_v_list.append("🚨 Alta (> 2.5 m/s)")
             else:
-                alerta_v_list.append("✅ Ok (0.6 - 2.5 m/s)")
+                alerta_v_list.append("✅ Ok")
 
-        # Agregar columnas calculadas al DataFrame
+        # Integrar resultados al DataFrame
         df_mod2["Re"] = Re_list
         df_mod2["Factor_f"] = f_list
         df_mod2["hf_Darcy_m"] = hf_darcy_list
@@ -318,18 +291,20 @@ with tab2:
         df_mod2["h_Total_Tramo_m"] = htotal_darcy_list
         df_mod2["Estado_Velocidad"] = alerta_v_list
 
-        # Actualizar estado global de la app
+        # Actualizar sesión para los siguientes módulos
         st.session_state["df_hidraulica"] = df_mod2
 
-        # Despliegue de métricas resumidas
+        # --- INTERFAZ DE RESULTADOS ---
         col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Pérdida Fricción Total (Darcy)", f"{df_mod2['hf_Darcy_m'].sum():.3f} m")
-        col_m2.metric("Pérdida Fricción Total (Hazen-Williams)", f"{df_mod2['hf_HW_m'].sum():.3f} m")
-        col_m3.metric("Diferencia Relativa Promedio", f"{abs(df_mod2['hf_Darcy_m'].sum() - df_mod2['hf_HW_m'].sum()) / df_mod2['hf_Darcy_m'].sum() * 100:.2f} %")
-
-        st.subheader("📊 Tabla Comparativa de Resultados Hidráulicos por Tramo")
+        sum_darcy = df_mod2['hf_Darcy_m'].sum()
+        sum_hw = df_mod2['hf_HW_m'].sum()
+        dif_relativa = abs(sum_darcy - sum_hw) / sum_darcy * 100 if sum_darcy > 0 else 0.0
         
-        # Selección de columnas visibles ordenadas para presentación ejecutiva
+        col_m1.metric("Fricción Total (Darcy)", f"{sum_darcy:.3f} m")
+        col_m2.metric("Fricción Total (Hazen-Williams)", f"{sum_hw:.3f} m")
+        col_m3.metric("Discrepancia entre métodos", f"{dif_relativa:.2f} %")
+
+        st.subheader("📊 Resumen Hidráulico por Tramo")
         columnas_ver = [
             "Tramo", "Q_diseno_Lps", "Velocidad_ms", "Estado_Velocidad", 
             "Re", "Factor_f", "hf_Darcy_m", "hf_HW_m", "hm_Acc_m", "h_Total_Tramo_m"
@@ -349,7 +324,7 @@ with tab2:
             use_container_width=True
         )
 
-        st.success("✅ Evaluación dual realizada. Procede a la Pestaña 3 para determinar la Ruta Crítica y CDT.")
+        st.success("✅ Evaluación dual realizada basándose en los gastos acumulados topológicamente. Procede a la Pestaña 3 (Ruta Crítica).")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL (MÓDULO 3 CON GRAFOS)
@@ -357,9 +332,8 @@ with tab2:
 with tab3:
     st.header("🗺️ Módulo 3: Ruta Crítica y Carga Dinámica Total (CDT)")
     
-    # CORRECCIÓN AQUÍ: Agregamos la validación para detener el código si la tabla está vacía (.empty)
-    if "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty or "h_Total_Tramo_m" not in st.session_state["df_hidraulica"].columns:
-        st.warning("⚠️ La tabla de tramos está vacía o sin procesar. Ingresa los datos en la Pestaña 1.")
+    if "df_hidraulica" not in st.session_state or "h_Total_Tramo_m" not in st.session_state["df_hidraulica"].columns:
+        st.warning("⚠️ Primero debes procesar la evaluación de pérdidas en la Pestaña 2.")
     else:
         df_mod3 = st.session_state["df_hidraulica"].copy()
         
@@ -470,12 +444,11 @@ with tab3:
 with tab4:
     st.header("⚡ Módulo 4: Selección de Bomba y Análisis Avanzado")
     
-    # REEMPLAZA EL IF POR ESTE:
-    if "cdt_global" not in st.session_state or "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty:
+    if "cdt_global" not in st.session_state or "df_hidraulica" not in st.session_state:
         st.warning("⚠️ Primero debes calcular la CDT y la ruta crítica en la Pestaña 3.")
     else:
         df_mod4 = st.session_state["df_hidraulica"].copy()
-        # ... (el resto de tu código del módulo 4 sigue igual)
+        cdt_req = st.session_state["cdt_global"]
         
         # Caudal total de bombeo (Tomado del nodo raíz detectado en Módulo 3)
         q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", df_mod4.iloc[0]["Q_diseno_Lps"])
@@ -592,12 +565,15 @@ with tab4:
 with tab5:
     st.header("📄 Módulo 5: Memoria Ejecutiva y Bitácora")
     
-    # REEMPLAZA EL IF POR ESTE:
-    if "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty or "cdt_global" not in st.session_state:
+    if "df_hidraulica" not in st.session_state or "cdt_global" not in st.session_state:
         st.warning("⚠️ Primero completa el análisis en las pestañas anteriores.")
     else:
         df_memoria = st.session_state["df_hidraulica"]
-        # ... (el resto de tu código del módulo 5 sigue igual)
+        cdt_final = st.session_state["cdt_global"]
+        mueble_desfavorable = st.session_state.get("mueble_critico", "Desconocido")
+        q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", 0.0)
+        
+        st.subheader("📑 Memoria de Cálculo Hidráulico")
         
         col_r1, col_r2 = st.columns(2)
         with col_r1:
@@ -656,3 +632,4 @@ UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES - INSTALACIONES BÁSICAS
         ])
         st.data_editor(bitacora_default, num_rows="dynamic", use_container_width=True)
         st.success("✅ Sistema web finalizado y ensamblado. Listo para evaluación.")
+        
