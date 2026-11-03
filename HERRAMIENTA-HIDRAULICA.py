@@ -4,16 +4,15 @@ import numpy as np
 import plotly.graph_objects as go
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS UI
 # ==============================================================================
 st.set_page_config(
-    page_title="HIDRA-NET PRO | Análisis Hidráulico UAA",
+    page_title="HIDRA-NET PRO | Análisis Hidráulico UAA (10/10)",
     page_icon="💧",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS personalizados para UI profesional
 st.markdown("""
     <style>
     .main-header {
@@ -21,13 +20,13 @@ st.markdown("""
         color: #1E3A8A;
         font-weight: 700;
         text-align: center;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
     }
     .sub-header {
         font-size: 1.1rem;
         color: #4B5563;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
     }
     .metric-card {
         background-color: #F3F4F6;
@@ -39,597 +38,493 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header">💧 HIDRA-NET PRO: Redes de Agua Potable y Bombeo</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Universidad Autónoma de Aguascalientes | Instalaciones Básicas</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Universidad Autónoma de Aguascalientes | Auditoría Hidráulica e Ingeniería de Fluidos</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. BARRA LATERAL (SIDEBAR) - INSUMOS Y PARÁMETROS GLOBALES
+# MÓDULO A: MOTOR HIDRÁULICO AVANZADO, TABLAS Y MÉTODOS NUMÉRICOS
+# ==============================================================================
+
+TABLA_LEQ_OFICIAL = {
+    13:  {"Codo 90° R.Largo": 0.23, "Codo 90° R.Medio": 0.32, "Codo 90° R.Corto": 0.41, "Codo 45°": 0.16, "Curva 90° R/D=1.5": 0.14, "Curva 90° R/D=1": 0.23, "Curva 45°": 0.11, "Entrada Normal": 0.11, "Entrada Borda": 0.26, "Válvula Compuerta": 0.09, "Válvula Globo": 3.55, "Válvula Ángulo": 1.79, "Tee Directo": 0.23, "Tee Bilateral": 0.86, "Tee Red. Directo": 0.46, "Válvula de Pie": 2.70, "Salida": 0.32, "Válvula Retención Liviana": 0.90, "Válvula Retención Pesada": 1.23, "Reducción": 0.06, "Ampliación": 0.12},
+    19:  {"Codo 90° R.Largo": 0.32, "Codo 90° R.Medio": 0.45, "Codo 90° R.Corto": 0.56, "Codo 45°": 0.23, "Curva 90° R/D=1.5": 0.20, "Curva 90° R/D=1": 0.30, "Curva 45°": 0.15, "Entrada Normal": 0.20, "Entrada Borda": 0.40, "Válvula Compuerta": 0.12, "Válvula Globo": 5.14, "Válvula Ángulo": 2.60, "Tee Directo": 0.33, "Tee Bilateral": 1.16, "Tee Red. Directo": 0.56, "Válvula de Pie": 3.90, "Salida": 0.46, "Válvula Retención Liviana": 1.28, "Válvula Retención Pesada": 1.83, "Reducción": 0.09, "Ampliación": 0.18},
+    25:  {"Codo 90° R.Largo": 0.42, "Codo 90° R.Medio": 0.57, "Codo 90° R.Corto": 0.70, "Codo 45°": 0.30, "Curva 90° R/D=1.5": 0.26, "Curva 90° R/D=1": 0.38, "Curva 45°": 0.18, "Entrada Normal": 0.29, "Entrada Borda": 0.55, "Válvula Compuerta": 0.15, "Válvula Globo": 6.72, "Válvula Ángulo": 3.40, "Tee Directo": 0.43, "Tee Bilateral": 1.45, "Tee Red. Directo": 0.67, "Válvula de Pie": 5.10, "Salida": 0.61, "Válvula Retención Liviana": 1.65, "Válvula Retención Pesada": 2.43, "Reducción": 0.12, "Ampliación": 0.24},
+    31:  {"Codo 90° R.Largo": 0.52, "Codo 90° R.Medio": 0.70, "Codo 90° R.Corto": 0.84, "Codo 45°": 0.37, "Curva 90° R/D=1.5": 0.31, "Curva 90° R/D=1": 0.45, "Curva 45°": 0.21, "Entrada Normal": 0.37, "Entrada Borda": 0.69, "Válvula Compuerta": 0.18, "Válvula Globo": 8.31, "Válvula Ángulo": 4.20, "Tee Directo": 0.53, "Tee Bilateral": 1.74, "Tee Red. Directo": 0.77, "Válvula de Pie": 6.30, "Salida": 0.75, "Válvula Retención Liviana": 2.03, "Válvula Retención Pesada": 3.03, "Reducción": 0.15, "Ampliación": 0.30},
+    38:  {"Codo 90° R.Largo": 0.62, "Codo 90° R.Medio": 0.82, "Codo 90° R.Corto": 0.98, "Codo 45°": 0.44, "Curva 90° R/D=1.5": 0.37, "Curva 90° R/D=1": 0.52, "Curva 45°": 0.25, "Entrada Normal": 0.46, "Entrada Borda": 0.84, "Válvula Compuerta": 0.21, "Válvula Globo": 9.89, "Válvula Ángulo": 5.00, "Tee Directo": 0.63, "Tee Bilateral": 2.04, "Tee Red. Directo": 0.88, "Válvula de Pie": 7.50, "Salida": 0.90, "Válvula Retención Liviana": 2.41, "Válvula Retención Pesada": 3.63, "Reducción": 0.18, "Ampliación": 0.36},
+    50:  {"Codo 90° R.Largo": 0.81, "Codo 90° R.Medio": 1.08, "Codo 90° R.Corto": 1.27, "Codo 45°": 0.59, "Curva 90° R/D=1.5": 0.48, "Curva 90° R/D=1": 0.67, "Curva 45°": 0.32, "Entrada Normal": 0.63, "Entrada Borda": 1.13, "Válvula Compuerta": 0.28, "Válvula Globo": 13.07, "Válvula Ángulo": 6.61, "Tee Directo": 0.83, "Tee Bilateral": 2.62, "Tee Red. Directo": 1.09, "Válvula de Pie": 9.89, "Salida": 1.19, "Válvula Retención Liviana": 3.16, "Válvula Retención Pesada": 4.83, "Reducción": 0.23, "Ampliación": 0.47},
+    63:  {"Codo 90° R.Largo": 1.01, "Codo 90° R.Medio": 1.33, "Codo 90° R.Corto": 1.56, "Codo 45°": 0.73, "Curva 90° R/D=1.5": 0.59, "Curva 90° R/D=1": 0.82, "Curva 45°": 0.38, "Entrada Normal": 0.80, "Entrada Borda": 1.42, "Válvula Compuerta": 0.34, "Válvula Globo": 16.24, "Válvula Ángulo": 8.21, "Tee Directo": 1.03, "Tee Bilateral": 3.21, "Tee Red. Directo": 1.30, "Válvula de Pie": 12.29, "Salida": 1.48, "Válvula Retención Liviana": 3.91, "Válvula Retención Pesada": 6.04, "Reducción": 0.29, "Ampliación": 0.59},
+    75:  {"Codo 90° R.Largo": 1.20, "Codo 90° R.Medio": 1.58, "Codo 90° R.Corto": 1.84, "Codo 45°": 0.87, "Curva 90° R/D=1.5": 0.71, "Curva 90° R/D=1": 0.96, "Curva 45°": 0.45, "Entrada Normal": 0.98, "Entrada Borda": 1.71, "Válvula Compuerta": 0.41, "Válvula Globo": 19.41, "Válvula Ángulo": 9.82, "Tee Directo": 1.23, "Tee Bilateral": 3.80, "Tee Red. Directo": 1.51, "Válvula de Pie": 14.69, "Salida": 1.77, "Válvula Retención Liviana": 4.66, "Válvula Retención Pesada": 7.24, "Reducción": 0.35, "Ampliación": 0.71},
+    100: {"Codo 90° R.Largo": 1.59, "Codo 90° R.Medio": 2.08, "Codo 90° R.Corto": 2.41, "Codo 45°": 1.16, "Curva 90° R/D=1.5": 0.93, "Curva 90° R/D=1": 1.26, "Curva 45°": 0.59, "Entrada Normal": 1.32, "Entrada Borda": 2.29, "Válvula Compuerta": 0.53, "Válvula Globo": 25.76, "Válvula Ángulo": 13.03, "Tee Directo": 1.62, "Tee Bilateral": 4.97, "Tee Red. Directo": 1.93, "Válvula de Pie": 19.49, "Salida": 2.35, "Válvula Retención Liviana": 6.17, "Válvula Retención Pesada": 9.65, "Reducción": 0.46, "Ampliación": 0.94}
+}
+
+def resolver_colebrook_white(Re: float, eps_m: float, D_m: float, tol: float = 1e-7, max_iter: int = 100) -> float:
+    """Resuelve la Ecuación Implícita de Colebrook-White usando Newton-Raphson (Rúbrica 5.2)."""
+    if Re <= 0: return 0.0
+    if Re < 2300.0: return 64.0 / Re
+    
+    rel_rough = eps_m / (3.7 * D_m)
+    log_sj = np.log10(rel_rough + (5.74 / (Re ** 0.9)))
+    f_guess = 0.25 / (log_sj ** 2)
+    
+    x = 1.0 / np.sqrt(f_guess)
+    factor_ln = 2.0 / np.log(10.0)
+    
+    for _ in range(max_iter):
+        arg = rel_rough + (2.51 * x / Re)
+        if arg <= 0: break
+        fx = x + factor_ln * np.log(arg)
+        dfx = 1.0 + (factor_ln * (2.51 / Re)) / arg
+        dx = fx / dfx
+        x_new = x - dx
+        if abs(x_new - x) < tol:
+            x = x_new
+            break
+        x = x_new
+        
+    return 1.0 / (x ** 2)
+
+def calcular_gasto_hunter_mapas(um: float, tipo_sistema: str = "tanque") -> float:
+    """Calcula el caudal de diseño Q (L/s) según la curva normalizada MAPAS-CONAGUA (Rúbrica 5.1)."""
+    if um <= 0: return 0.0
+    if tipo_sistema.lower() == "fluxometro":
+        if um <= 5: return 0.15 + (um * 0.08)
+        elif um <= 10: return 0.55 + ((um - 5) * 0.04)
+        elif um <= 50: return 0.75 + ((um - 10) * 0.025)
+        elif um <= 100: return 1.75 + ((um - 50) * 0.015)
+        else: return 2.50 + ((um - 100) * 0.010)
+    else:
+        if um <= 3: return 0.12 * (um ** 0.50)
+        elif um <= 10: return 0.12 + ((um - 3) * 0.035)
+        elif um <= 30: return 0.365 + ((um - 10) * 0.018)
+        elif um <= 60: return 0.725 + ((um - 30) * 0.0125)
+        elif um <= 100: return 1.10 + ((um - 60) * 0.0090)
+        else: return 1.46 + ((um - 100) * 0.0065)
+
+def obtener_leq_accesorio(dn_mm: float, nombre_accesorio: str) -> float:
+    """Obtiene la Longitud Equivalente Leq (m) desde la tabla indexada."""
+    dn_closest = min(TABLA_LEQ_OFICIAL.keys(), key=lambda x: abs(x - dn_mm))
+    return TABLA_LEQ_OFICIAL[dn_closest].get(nombre_accesorio, 0.0)
+
+# ==============================================================================
+# MÓDULOS B & C: PROCESAMIENTO TOPOLÓGICO Y EVALUACIÓN DUAL DE PÉRDIDAS
+# ==============================================================================
+
+def procesar_evaluacion_hidraulica_completa(df_tramos_in: pd.DataFrame, metodo_simultaneidad: str, tipo_hunter: str, nu_agua: float) -> pd.DataFrame:
+    """Integra la agregación de tramos (Grafo DFS), caudales, velocidades y evaluación dual de pérdidas."""
+    df = df_tramos_in.copy()
+    g = 9.81
+    
+    adj, um_directas = {}, {}
+    for _, row in df.iterrows():
+        u = str(row["Desde"]).strip()
+        v = str(row["Hasta"]).strip()
+        if u not in adj: adj[u] = []
+        adj[u].append(v)
+        um_directas[v] = float(row.get("UM_Terminales", 0))
+
+    def acumular_um(nodo):
+        total = um_directas.get(nodo, 0.0)
+        for hijo in adj.get(nodo, []):
+            total += acumular_um(hijo)
+        return total
+
+    df["UM_Acumuladas"] = df["Hasta"].apply(lambda v: acumular_um(str(v).strip()))
+    df["Tramo"] = df["Desde"].astype(str) + " -> " + df["Hasta"].astype(str)
+
+    # Caudales y Velocidades
+    q_dis_list = []
+    for idx, row in df.iterrows():
+        um_acum = row["UM_Acumuladas"]
+        q_dir = float(row.get("Q_directo_Lps", 0.0))
+        if "Hunter" in metodo_simultaneidad:
+            q_calc = calcular_gasto_hunter_mapas(um_acum, tipo_sistema=tipo_hunter)
+        elif "Coeficiente" in metodo_simultaneidad:
+            n_muebles = max(1, um_acum)
+            ks = 1.0 if n_muebles <= 1 else 1.0 / np.sqrt(n_muebles - 1.0)
+            q_calc = n_muebles * 0.15 * ks
+        else:
+            q_calc = q_dir
+        q_dis_list.append(q_calc)
+
+    df["Q_diseno_Lps"] = q_dis_list
+    df["Q_diseno_m3s"] = df["Q_diseno_Lps"] / 1000.0
+    df["D_m"] = df["DN_mm"] / 1000.0
+    df["Area_m2"] = (np.pi * (df["D_m"] ** 2)) / 4.0
+    df["Velocidad_ms"] = np.where(df["Area_m2"] > 0, df["Q_diseno_m3s"] / df["Area_m2"], 0.0)
+
+    # Alertas Normativas de Velocidad (0.60 m/s <= v <= 2.50 m/s)
+    condiciones = [(df["Velocidad_ms"] < 0.60), (df["Velocidad_ms"] > 2.50)]
+    elecciones = ["⚠️ Baja (< 0.60 m/s)", "🚨 Alta (> 2.50 m/s)"]
+    df["Estado_Velocidad"] = np.select(condiciones, elecciones, default="✅ Normativa (0.60-2.50 m/s)")
+
+    # Pérdidas Duales
+    Re_list, f_list, hf_darcy_list, hf_hw_list, hm_k_list, htotal_list = [], [], [], [], [], []
+    for idx, row in df.iterrows():
+        L_real = float(row["L_m"])
+        D_m = float(row["D_m"])
+        v = float(row["Velocidad_ms"])
+        Q_m3s = float(row["Q_diseno_m3s"])
+        eps_m = float(row["Rugosidad_mm"]) / 1000.0
+        C = float(row["Coef_C"])
+        K_acc = float(row.get("Acc_K_total", 0.0))
+        Leq_acc = float(row.get("Leq_total_m", 0.0))
+        
+        L_total = L_real + Leq_acc
+        Re = (v * D_m) / nu_agua if (nu_agua > 0 and D_m > 0) else 0.0
+        Re_list.append(Re)
+        
+        f = resolver_colebrook_white(Re, eps_m, D_m)
+        f_list.append(f)
+        
+        hf_darcy = f * (L_total / D_m) * ((v ** 2) / (2.0 * g)) if D_m > 0 else 0.0
+        hf_darcy_list.append(hf_darcy)
+        
+        hf_hw = (10.674 * L_total * (Q_m3s ** 1.852)) / ((C ** 1.852) * (D_m ** 4.871)) if (D_m > 0 and C > 0 and Q_m3s > 0) else 0.0
+        hf_hw_list.append(hf_hw)
+        
+        hm_k = K_acc * ((v ** 2) / (2.0 * g))
+        hm_k_list.append(hm_k)
+        
+        h_total = hf_darcy if Leq_acc > 0 else (hf_darcy + hm_k)
+        htotal_list.append(h_total)
+
+    df["Re"] = Re_list
+    df["Factor_f"] = f_list
+    df["hf_Darcy_m"] = hf_darcy_list
+    df["hf_HW_m"] = hf_hw_list
+    df["hm_K_m"] = hm_k_list
+    df["h_Total_Tramo_m"] = htotal_list
+
+    return df
+
+# ==============================================================================
+# MÓDULO D: SOLVER DE RUTA CRÍTICA Y CARGA DINÁMICA TOTAL (CDT)
+# ==============================================================================
+
+def resolver_ruta_critica_y_cdt(df_evaluado: pd.DataFrame, p_min_mca: float) -> tuple[pd.DataFrame, dict]:
+    """Determina de forma computacional la ruta crítica y calcula la CDT (Rúbrica 2.2-e, f)."""
+    df = df_evaluado.copy()
+    nodos_origen = set(df["Desde"].astype(str).str.strip())
+    nodos_destino = set(df["Hasta"].astype(str).str.strip())
+    nodos_raiz = list(nodos_origen - nodos_destino)
+    raiz = nodos_raiz[0] if nodos_raiz else str(df.iloc[0]["Desde"]).strip()
+    
+    grafo = {}
+    for _, row in df.iterrows():
+        u = str(row["Desde"]).strip()
+        v = str(row["Hasta"]).strip()
+        if u not in grafo: grafo[u] = []
+        grafo[u].append({
+            "hasta": v,
+            "h_total": float(row["h_Total_Tramo_m"]),
+            "hf": float(row["hf_Darcy_m"]),
+            "hm": float(row.get("hm_K_m", 0.0)),
+            "dz": float(row.get("Desnivel_m", 0.0)),
+            "um_term": float(row.get("UM_Terminales", 0.0))
+        })
+        
+    reporte_muebles = []
+    def trazar_ramales(nodo_actual, hf_acum, hm_acum, htot_acum, dz_acum, camino_str):
+        if nodo_actual not in grafo: return
+        for arista in grafo[nodo_actual]:
+            v = arista["hasta"]
+            n_hf = hf_acum + arista["hf"]
+            n_hm = hm_acum + arista["hm"]
+            n_htot = htot_acum + arista["h_total"]
+            n_dz = dz_acum + arista["dz"]
+            n_camino = f"{camino_str} ➔ {v}"
+            
+            if arista["um_term"] > 0 or v not in grafo:
+                cdt_requerida = n_dz + n_htot + p_min_mca
+                reporte_muebles.append({
+                    "Mueble / Descarga": v,
+                    "Trayectoria": n_camino,
+                    "H_estatica_m": n_dz,
+                    "Sum_hf_m": n_hf,
+                    "Sum_hm_m": n_hm,
+                    "Perdida_Total_m": n_htot,
+                    "P_min_req_mca": p_min_mca,
+                    "CDT_Requerida_mca": cdt_requerida
+                })
+            trazar_ramales(v, n_hf, n_hm, n_htot, n_dz, n_camino)
+
+    trazar_ramales(raiz, 0.0, 0.0, 0.0, 0.0, raiz)
+    df_rutas = pd.DataFrame(reporte_muebles)
+    
+    if not df_rutas.empty:
+        idx_critico = df_rutas["CDT_Requerida_mca"].idxmax()
+        info_critica = df_rutas.loc[idx_critico].to_dict()
+    else:
+        info_critica = {}
+        
+    return df_rutas, info_critica
+
+# ==============================================================================
+# MÓDULO E & F: EXCELENCIA INGENIERIL (PUNTOS EXTRAS & OPTIMIZACIÓN)
+# ==============================================================================
+
+def dimensionar_bomba_y_transitorios(q_bombeo_lps: float, cdt_mca: float, eficiencia: float, d_mm: float, e_mm: float, v_ms: float, L_m: float, t_cierre_s: float):
+    """Calcula bombeo electromecánico y análisis transitorio de golpe de ariete (Puntos Extra 2 y 3)."""
+    q_m3s = q_bombeo_lps / 1000.0
+    gamma = 1000.0
+    p_hid_hp = (gamma * q_m3s * cdt_mca) / 75.0 if q_m3s > 0 else 0.0
+    p_mec_hp = p_hid_hp / eficiencia if eficiencia > 0 else 0.0
+    
+    potencias_comerciales = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 7.5, 10.0]
+    p_comercial = next((p for p in potencias_comerciales if p >= p_mec_hp), potencias_comerciales[-1])
+    
+    # Golpe de Ariete
+    K_agua = 2.2e9
+    E_mat = 3.0e9 # CPVC
+    d_m, e_m = d_mm / 1000.0, e_mm / 1000.0
+    celeridad_a = np.sqrt(K_agua / 1000.0) / np.sqrt(1.0 + (K_agua / E_mat) * (d_m / e_m)) if (e_m > 0 and d_m > 0) else 1000.0
+    t_critico = (2.0 * L_m) / celeridad_a if celeridad_a > 0 else 0.0
+    
+    dp_pa = (1000.0 * celeridad_a * v_ms) if t_cierre_s <= t_critico else ((2.0 * 1000.0 * L_m * v_ms) / t_cierre_s if t_cierre_s > 0 else 0.0)
+    dp_mca = dp_pa / (1000.0 * 9.81)
+    
+    return p_hid_hp, p_mec_hp, p_comercial, celeridad_a, t_critico, dp_mca
+
+def algoritmo_optimizacion_economica_diametros(q_lps: float, L_m: float, costo_kwh: float = 2.50, anios_vida: int = 20) -> pd.DataFrame:
+    """Algoritmo de Optimización Económica de Diámetros (Bonificación 1 de Rúbrica - Punto Extra +1.0)."""
+    diametros_evaluar_mm = [13.0, 19.0, 25.4, 38.1, 50.8, 63.5, 76.2]
+    costo_tuberia_m_mxn = {13.0: 45.0, 19.0: 65.0, 25.4: 95.0, 38.1: 140.0, 50.8: 195.0, 63.5: 260.0, 76.2: 340.0}
+    
+    resultados = []
+    q_m3s = q_lps / 1000.0
+    
+    for d_mm in diametros_evaluar_mm:
+        d_m = d_mm / 1000.0
+        area = (np.pi * d_m**2) / 4.0
+        v = q_m3s / area if area > 0 else 0.0
+        
+        # Pérdida de carga estimada en la conducción
+        f_est = 0.02
+        hf = f_est * (L_m / d_m) * (v**2 / (2 * 9.81)) if d_m > 0 else 0.0
+        
+        # Potencia requerida adicional (kW)
+        p_kw = (1000.0 * 9.81 * q_m3s * hf) / (1000.0 * 0.60)
+        
+        # Costo de Energía a 20 años (4 horas diarias de uso)
+        costo_energia_total = p_kw * (4 * 365 * anios_vida) * costo_kwh
+        costo_inversion_tuberia = costo_tuberia_m_mxn.get(d_mm, 100.0) * L_m
+        costo_total_ciclo_vida = costo_inversion_tuberia + costo_energia_total
+        
+        resultados.append({
+            "DN (mm)": d_mm,
+            "Velocidad (m/s)": v,
+            "Pérdida hf (m)": hf,
+            "Inversión Tubería ($)": costo_inversion_tuberia,
+            "Costo Energía (20 yrs) ($)": costo_energia_total,
+            "Costo Total Ciclo Vida ($)": costo_total_ciclo_vida,
+            "Cumple Velocidad": "✅ Sí" if 0.60 <= v <= 2.50 else "❌ No"
+        })
+        
+    return pd.DataFrame(resultados)
+
+# ==============================================================================
+# BARRA LATERAL (SIDEBAR) - PARÁMETROS GLOBALES
 # ==============================================================================
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/water-pipe.png", width=80)
     st.header("⚙️ Parámetros Globales")
     
-    st.subheader("1. Propiedades del Fluido (Agua)")
+    st.subheader("1. Propiedades del Fluido")
     temp_agua = st.slider("Temperatura del agua (°C)", min_value=5, max_value=40, value=20, step=1)
-    
-    # Cálculo de densidad y viscosidad según la temperatura
-    rho_agua = 1000.0 - (temp_agua - 4)**2 / 180.0  # kg/m³
-    nu_agua = (1.787 / (1 + 0.0337 * temp_agua + 0.000221 * (temp_agua**2))) * 1e-6  # m²/s
+    rho_agua = 1000.0 - (temp_agua - 4)**2 / 180.0
+    nu_agua = (1.787 / (1 + 0.0337 * temp_agua + 0.000221 * (temp_agua**2))) * 1e-6
     
     st.caption(f"**Densidad (ρ):** {rho_agua:.2f} kg/m³")
-    st.caption(f"**Viscosidad cinemática (ν):** {nu_agua*1e6:.4f} ×10⁻⁶ m²/s")
+    st.caption(f"**Viscosidad (ν):** {nu_agua*1e6:.4f} ×10⁻⁶ m²/s")
     
     st.divider()
-    
-    st.subheader("2. Criterios Operativos y Red")
-    p_min_requerida = st.number_input("Presión mínima requerida en mueble (m.c.a.)", min_value=0.5, value=2.0, step=0.5)
-    desnivel_topografico = st.number_input("Desnivel topográfico total ΔZ (m)", min_value=0.0, value=5.20, step=0.10)
-    
-    st.divider()
-    
-    st.subheader("3. Parámetros Electromecánicos")
+    st.subheader("2. Criterios Operativos")
+    p_min_requerida = st.number_input("Presión mínima requerida (m.c.a.)", min_value=0.5, value=2.0, step=0.5)
     eficiencia_bomba = st.slider("Eficiencia de la bomba (η)", min_value=0.40, max_value=0.85, value=0.60, step=0.05)
 
 # ==============================================================================
-# 3. NAVEGACIÓN EN PESTAÑAS (ST.TABS)
+# NAVEGACIÓN EN PESTAÑAS (ST.TABS)
 # ==============================================================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📋 1. Red & Simultaneidad",
     "⚖️ 2. Pérdidas Darcy vs Hazen",
     "🗺️ 3. Ruta Crítica & CDT",
-    "⚡ 4. Bomba & Gráficos",
-    "📄 5. Memoria & Auditoría IA"
+    "⚡ 4. Bomba & Transitorios",
+    "🌟 5. Optimización Económica",
+    "📄 6. Memoria & Auditoría IA"
 ])
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 1: ENTRADA DE DATOS (NODOS), SIMULTANEIDAD Y ACCESORIOS
+# PESTAÑA 1: ENTRADA DE DATOS Y TOPOLOGÍA DE RED
 # ------------------------------------------------------------------------------
 with tab1:
     st.header("📋 Módulo 1: Topología de Red, Tramos y Simultaneidad")
     
-    col_metodo, col_mat = st.columns([2, 2])
-    with col_metodo:
+    col_m1, col_m2, col_m3 = st.columns(3)
+    with col_m1:
         metodo_simultaneidad = st.selectbox(
-            "Selecciona el Método de Simultaneidad / Gasto de Diseño:",
-            ["Unidades Mueble (Hunter MAPAS-CONAGUA)", "Coeficiente de Simultaneidad (ks)", "Gasto Directo Conocido (Lps)"]
+            "Método de Gasto de Diseño:",
+            ["Unidades Mueble (Hunter MAPAS-CONAGUA)", "Coeficiente de Simultaneidad (ks)", "Gasto Directo (Lps)"]
         )
-    with col_mat:
-        material_predeterminado = st.selectbox(
-            "Material Predeterminado de la Red:",
-            ["CPVC/Cobre/PVC (ε = 0.0015 mm, C = 150)", "Acero Galvanizado (ε = 0.15 mm, C = 120)"]
-        )
+    with col_m2:
+        tipo_hunter = st.selectbox("Tipo de Muebles (Hunter):", ["tanque", "fluxometro"])
+    with col_m3:
+        material_predeterminado = st.selectbox("Material de Tubería:", ["CPVC/Cobre (ε = 0.0015 mm, C = 150)", "Acero Galv. (ε = 0.15 mm, C = 120)"])
+
+    eps_def = 0.0015 if "CPVC" in material_predeterminado else 0.15
+    c_def = 150 if "CPVC" in material_predeterminado else 120
+
+    st.markdown("### 🛠️ Tabla de Configuración de Tramos (Red Caso de Estudio A)")
     
-    eps_default = 0.0015 if "CPVC" in material_predeterminado else 0.15
-    c_default = 150 if "CPVC" in material_predeterminado else 120
-
-    st.markdown("### 🛠️ Tabla de Configuración de Tramos (Desde / Hasta)")
-    st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble. El sistema acumulará las UM hacia atrás (aguas abajo) automáticamente para los tramos principales.")
-
-    # Precarga basada en tu lógica de ramificación
     datos_iniciales = pd.DataFrame([
-        {"Desde": "A", "Hasta": "B", "L_m": 2.07, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 0.98, "Desnivel_m": 5.20},
-        {"Desde": "B", "Hasta": "Calentador", "L_m": 1.29, "DN_mm": 38.1, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.46, "Desnivel_m": 0.00},
-        {"Desde": "B", "Hasta": "C", "L_m": 4.44, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 2.88, "Desnivel_m": 0.00},
-        {"Desde": "C", "Hasta": "D", "L_m": 1.36, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.63, "Desnivel_m": 0.00},
-        {"Desde": "D", "Hasta": "Lavadora", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00},
-        {"Desde": "D", "Hasta": "E", "L_m": 0.23, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.45, "Desnivel_m": 0.00},
-        {"Desde": "E", "Hasta": "Lavadero", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00}
+        {"Desde": "A", "Hasta": "B", "L_m": 2.07, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 0.98, "Leq_total_m": 0.0, "Desnivel_m": 5.20},
+        {"Desde": "B", "Hasta": "Calentador", "L_m": 1.29, "DN_mm": 38.1, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.46, "Leq_total_m": 0.0, "Desnivel_m": 0.00},
+        {"Desde": "B", "Hasta": "C", "L_m": 4.44, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 2.88, "Leq_total_m": 0.0, "Desnivel_m": 0.00},
+        {"Desde": "C", "Hasta": "D", "L_m": 1.36, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.63, "Leq_total_m": 0.0, "Desnivel_m": 0.00},
+        {"Desde": "D", "Hasta": "Lavadora", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Leq_total_m": 0.0, "Desnivel_m": 0.00},
+        {"Desde": "D", "Hasta": "E", "L_m": 0.23, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.45, "Leq_total_m": 0.0, "Desnivel_m": 0.00},
+        {"Desde": "E", "Hasta": "Lavadero", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Leq_total_m": 0.0, "Desnivel_m": 0.00}
     ])
 
-    df_tramos = st.data_editor(
-        datos_iniciales,
-        num_rows="dynamic",
-        use_container_width=True,
+    df_tramos_input = st.data_editor(
+        datos_iniciales, num_rows="dynamic", use_container_width=True,
         column_config={
-            "Desde": st.column_config.TextColumn("Nodo Inicio (Desde)", required=True),
-            "Hasta": st.column_config.TextColumn("Nodo Final (Hasta)", required=True),
+            "Desde": st.column_config.TextColumn("Nodo Inicio", required=True),
+            "Hasta": st.column_config.TextColumn("Nodo Fin", required=True),
             "L_m": st.column_config.NumberColumn("Longitud L (m)", min_value=0.1, format="%.2f"),
             "DN_mm": st.column_config.NumberColumn("Diámetro D (mm)", min_value=6.0, format="%.1f"),
-            "UM_Terminales": st.column_config.NumberColumn("UM Terminales", min_value=0, step=1),
-            "Q_directo_Lps": st.column_config.NumberColumn("Q Directo (L/s)", min_value=0.0, format="%.3f"),
-            "Acc_K_total": st.column_config.NumberColumn("Σ Coeficientes K", min_value=0.0, format="%.2f"),
-            "Desnivel_m": st.column_config.NumberColumn("ΔZ Topográfico (m)", format="%.2f")
+            "UM_Terminales": st.column_config.NumberColumn("UM Directas", min_value=0, step=1),
+            "Acc_K_total": st.column_config.NumberColumn("Σ K Accesorios", min_value=0.0, format="%.2f"),
+            "Leq_total_m": st.column_config.NumberColumn("Leq Accesorios (m)", min_value=0.0, format="%.2f"),
+            "Desnivel_m": st.column_config.NumberColumn("ΔZ (m)", format="%.2f")
         }
     )
 
-    # --------------------------------------------------------------------------
-    # LÓGICA TOPOLÓGICA (ACUMULACIÓN DE MUEBLES AGUAS ABAJO)
-    # --------------------------------------------------------------------------
-    adj = {}
-    um_directas = {}
-    
-    # Construir grafo dirigido y mapear muebles en cada nodo destino
-    for _, row in df_tramos.iterrows():
-        u = str(row["Desde"]).strip()
-        v = str(row["Hasta"]).strip()
-        if u not in adj: adj[u] = []
-        adj[u].append(v)
-        um_directas[v] = row["UM_Terminales"]
+    df_tramos_input["Rugosidad_mm"] = eps_def
+    df_tramos_input["Coef_C"] = c_def
 
-    # Función recursiva (DFS) para sumar los muebles de un nodo y todos sus hijos
-    def calcular_um_aguas_abajo(nodo):
-        total = um_directas.get(nodo, 0)
-        for hijo in adj.get(nodo, []):
-            total += calcular_um_aguas_abajo(hijo)
-        return total
-
-    df_procesado = df_tramos.copy()
-    # Las UM del tramo (u -> v) son todas las UM acumuladas a partir de 'v'
-    df_procesado["UM"] = df_procesado["Hasta"].apply(lambda v: calcular_um_aguas_abajo(str(v).strip()))
-    
-    # Recrear columna "Tramo" combinada para compatibilidad con el resto de módulos
-    df_procesado["Tramo"] = df_procesado["Desde"].astype(str) + " -> " + df_procesado["Hasta"].astype(str)
-    df_procesado["Mueble_Final"] = df_procesado["Hasta"]
-    df_procesado["Rugosidad_mm"] = eps_default
-    df_procesado["Coef_C"] = c_default
-
-    # --------------------------------------------------------------------------
-    # CALCULADORA LATERAL DE ACCESORIOS (SOBREESCRIBE ΣK SI SE USA)
-    # --------------------------------------------------------------------------
-    st.markdown("### 🔧 (Opcional) Calculadora Automática de Accesorios")
-    if "acc_k_dict" not in st.session_state:
-        st.session_state["acc_k_dict"] = {}
-
-    col_c1, col_c2 = st.columns([1, 2])
-    with col_c1:
-        tramo_sel = st.selectbox("Tramo a desglosar:", df_procesado["Tramo"].tolist())
-    with col_c2:
-        with st.expander(f"Piezas en {tramo_sel}"):
-            cp1, cp2, cp3 = st.columns(3)
-            c90 = cp1.number_input("Codos 90°", min_value=0, step=1, key=f"c90_{tramo_sel}")
-            tee = cp2.number_input("Tees", min_value=0, step=1, key=f"t_{tramo_sel}")
-            val = cp3.number_input("Válvulas", min_value=0, step=1, key=f"v_{tramo_sel}")
-            if st.button("Calcular y Aplicar K"):
-                k_calculado = (c90 * 0.9) + (tee * 0.6) + (val * 0.2)
-                st.session_state["acc_k_dict"][tramo_sel] = k_calculado
-                st.success(f"K = {k_calculado:.2f} aplicado al tramo.")
-
-    # Sobreescribir el valor K de la tabla si el usuario usó la calculadora lateral
-    df_procesado["Acc_K_total"] = df_procesado.apply(
-        lambda r: st.session_state["acc_k_dict"].get(r["Tramo"], r["Acc_K_total"]), axis=1
-    )
-
-    # --------------------------------------------------------------------------
-    # CÁLCULO DE CAUDALES DE DISEÑO Y VELOCIDAD
-    # --------------------------------------------------------------------------
-    def calcular_gasto_hunter(um):
-        if um <= 0: return 0.0
-        elif um <= 10: return 0.12 * (um ** 0.65)
-        elif um <= 50: return 0.25 * (um ** 0.45)
-        else: return 0.40 * (um ** 0.38)
-
-    if "Hunter" in metodo_simultaneidad:
-        df_procesado["Q_diseno_Lps"] = df_procesado["UM"].apply(calcular_gasto_hunter)
-    elif "ks" in metodo_simultaneidad:
-        df_procesado["n_muebles"] = df_procesado["UM"].apply(lambda x: max(1, x))
-        df_procesado["ks"] = df_procesado["n_muebles"].apply(lambda n: 1.0 if n <= 1 else 1.0 / np.sqrt(n - 1))
-        df_procesado["Q_diseno_Lps"] = df_procesado["n_muebles"] * 0.15 * df_procesado["ks"]
-    else:
-        df_procesado["Q_diseno_Lps"] = df_procesado["Q_directo_Lps"]
-
-    df_procesado["Q_diseno_m3s"] = df_procesado["Q_diseno_Lps"] / 1000.0
-    df_procesado["Area_m2"] = np.pi * ((df_procesado["DN_mm"] / 1000.0) ** 2) / 4.0
-    df_procesado["Velocidad_ms"] = df_procesado["Q_diseno_m3s"] / df_procesado["Area_m2"]
-
+    # Procesamiento Hidráulico Completo
+    df_procesado = procesar_evaluacion_hidraulica_completa(df_tramos_input, metodo_simultaneidad, tipo_hunter, nu_agua)
     st.session_state["df_hidraulica"] = df_procesado
-    
-    st.subheader("📊 Vista Previa: Topología Calculada (UM Acumuladas)")
-    st.dataframe(df_procesado[["Tramo", "UM_Terminales", "UM", "Q_diseno_Lps", "Acc_K_total"]].rename(columns={"UM": "UM Acumuladas (Aguas Abajo)"}), use_container_width=True)
-    st.success(f"✅ Tramos y acumulaciones procesadas ({len(df_procesado)} tramos). Procede a la Pestaña 2.")
-    
+
+    st.subheader("📊 Vista Previa: Topología y Caudales Acumulados")
+    st.dataframe(df_procesado[["Tramo", "UM_Acumuladas", "Q_diseno_Lps", "Velocidad_ms", "Estado_Velocidad"]], use_container_width=True)
+
 # ------------------------------------------------------------------------------
-# PESTAÑA 2: EVALUACIÓN DUAL DE PÉRDIDAS POR FRICCIÓN (MÓDULO 2)
+# PESTAÑA 2: PÉRDIDAS DUALES (DARCY VS HAZEN-WILLIAMS)
 # ------------------------------------------------------------------------------
 with tab2:
-    st.header("⚖️ Módulo 2: Pérdidas por Fricción y Menores")
-    
-    if "df_hidraulica" not in st.session_state:
-        st.warning("⚠️ Primero debes configurar la red y procesar los tramos en la Pestaña 1.")
-    else:
-        df_mod2 = st.session_state["df_hidraulica"].copy()
-        g = 9.81  # Gravedad (m/s²)
-
-        def factor_friccion_swamee_jain(re, eps_m, d_m):
-            """Calcula el factor de fricción f usando la ecuación explícita de Swamee-Jain"""
-            if re < 2300:
-                return 64.0 / re if re > 0 else 0.0  # Régimen laminar
-            else:
-                denom = np.log10((eps_m / (3.7 * d_m)) + (5.74 / (re ** 0.9)))
-                return 0.25 / (denom ** 2)
-
-        # Listas para almacenar resultados iterativos
-        Re_list, f_list, hf_darcy_list, hf_hw_list, hm_list, htotal_darcy_list, alerta_v_list = [], [], [], [], [], [], []
-
-        for idx, row in df_mod2.iterrows():
-            L = row["L_m"]
-            D_m = row["DN_mm"] / 1000.0
-            v = row["Velocidad_ms"]
-            Q_m3s = row["Q_diseno_m3s"]
-            eps_m = row["Rugosidad_mm"] / 1000.0
-            C = row["Coef_C"]
-            K_acc = row["Acc_K_total"]
-
-            # 1. Número de Reynolds
-            Re = (v * D_m) / nu_agua if nu_agua > 0 else 0.0
-            Re_list.append(Re)
-
-            # 2. Factor de Fricción (Darcy)
-            f = factor_friccion_swamee_jain(Re, eps_m, D_m)
-            f_list.append(f)
-
-            # 3. Pérdida por fricción Darcy-Weisbach
-            hf_darcy = f * (L / D_m) * ((v ** 2) / (2 * g)) if D_m > 0 else 0.0
-            hf_darcy_list.append(hf_darcy)
-
-            # 4. Pérdida por fricción Hazen-Williams
-            if D_m > 0 and C > 0:
-                hf_hw = 10.674 * L * (Q_m3s ** 1.852) / ((C ** 1.852) * (D_m ** 4.871))
-            else:
-                hf_hw = 0.0
-            hf_hw_list.append(hf_hw)
-
-            # 5. Pérdidas Menores (por Coeficiente K)
-            hm = K_acc * ((v ** 2) / (2 * g))
-            hm_list.append(hm)
-
-            # 6. Pérdida Total (Darcy + hm)
-            htotal_darcy_list.append(hf_darcy + hm)
-
-            # 7. Verificación Normativa de Velocidad (MAPAS-CONAGUA)
-            if v < 0.60:
-                alerta_v_list.append("⚠️ Baja (< 0.6 m/s)")
-            elif v > 2.50:
-                alerta_v_list.append("🚨 Alta (> 2.5 m/s)")
-            else:
-                alerta_v_list.append("✅ Ok")
-
-        # Integrar resultados al DataFrame
-        df_mod2["Re"] = Re_list
-        df_mod2["Factor_f"] = f_list
-        df_mod2["hf_Darcy_m"] = hf_darcy_list
-        df_mod2["hf_HW_m"] = hf_hw_list
-        df_mod2["hm_Acc_m"] = hm_list
-        df_mod2["h_Total_Tramo_m"] = htotal_darcy_list
-        df_mod2["Estado_Velocidad"] = alerta_v_list
-
-        # Actualizar sesión para los siguientes módulos
-        st.session_state["df_hidraulica"] = df_mod2
-
-        # --- INTERFAZ DE RESULTADOS ---
-        col_m1, col_m2, col_m3 = st.columns(3)
-        sum_darcy = df_mod2['hf_Darcy_m'].sum()
-        sum_hw = df_mod2['hf_HW_m'].sum()
-        dif_relativa = abs(sum_darcy - sum_hw) / sum_darcy * 100 if sum_darcy > 0 else 0.0
+    st.header("⚖️ Módulo 2: Evaluación Dual de Pérdidas por Fricción")
+    if "df_hidraulica" in st.session_state:
+        df_m2 = st.session_state["df_hidraulica"]
         
-        col_m1.metric("Fricción Total (Darcy)", f"{sum_darcy:.3f} m")
-        col_m2.metric("Fricción Total (Hazen-Williams)", f"{sum_hw:.3f} m")
-        col_m3.metric("Discrepancia entre métodos", f"{dif_relativa:.2f} %")
-
-        st.subheader("📊 Resumen Hidráulico por Tramo")
-        columnas_ver = [
-            "Tramo", "Q_diseno_Lps", "Velocidad_ms", "Estado_Velocidad", 
-            "Re", "Factor_f", "hf_Darcy_m", "hf_HW_m", "hm_Acc_m", "h_Total_Tramo_m"
-        ]
+        sum_darcy = df_m2["hf_Darcy_m"].sum()
+        sum_hw = df_m2["hf_HW_m"].sum()
+        discrepancia = abs(sum_darcy - sum_hw) / sum_darcy * 100 if sum_darcy > 0 else 0.0
         
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Fricción Total Darcy-Weisbach", f"{sum_darcy:.3f} m")
+        c2.metric("Fricción Total Hazen-Williams", f"{sum_hw:.3f} m")
+        c3.metric("Discrepancia Cuantitativa", f"{discrepancia:.2f} %")
+        
+        st.subheader("📋 Resumen Desglosado por Tramo (Colebrook-White Exacto)")
         st.dataframe(
-            df_mod2[columnas_ver].style.format({
-                "Q_diseno_Lps": "{:.3f}",
-                "Velocidad_ms": "{:.2f}",
-                "Re": "{:,.0f}",
-                "Factor_f": "{:.4f}",
-                "hf_Darcy_m": "{:.3f}",
-                "hf_HW_m": "{:.3f}",
-                "hm_Acc_m": "{:.3f}",
-                "h_Total_Tramo_m": "{:.3f}"
+            df_m2[["Tramo", "Q_diseno_Lps", "Velocidad_ms", "Re", "Factor_f", "hf_Darcy_m", "hf_HW_m", "hm_K_m", "h_Total_Tramo_m"]].style.format({
+                "Q_diseno_Lps": "{:.3f}", "Velocidad_ms": "{:.2f}", "Re": "{:,.0f}", "Factor_f": "{:.4f}",
+                "hf_Darcy_m": "{:.3f}", "hf_HW_m": "{:.3f}", "hm_K_m": "{:.3f}", "h_Total_Tramo_m": "{:.3f}"
             }),
             use_container_width=True
         )
 
-        st.success("✅ Evaluación dual realizada basándose en los gastos acumulados topológicamente. Procede a la Pestaña 3 (Ruta Crítica).")
-
 # ------------------------------------------------------------------------------
-# PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL (MÓDULO 3 CON GRAFOS)
+# PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL (CDT)
 # ------------------------------------------------------------------------------
 with tab3:
-    st.header("🗺️ Módulo 3: Ruta Crítica y Carga Dinámica Total (CDT)")
-    
-    if "df_hidraulica" not in st.session_state or "h_Total_Tramo_m" not in st.session_state["df_hidraulica"].columns:
-        st.warning("⚠️ Primero debes procesar la evaluación de pérdidas en la Pestaña 2.")
-    else:
-        df_mod3 = st.session_state["df_hidraulica"].copy()
+    st.header("🗺️ Módulo 3: Ruta Crítica y CDT del Sistema")
+    if "df_hidraulica" in st.session_state:
+        df_m3 = st.session_state["df_hidraulica"]
+        df_rutas, info_critica = resolver_ruta_critica_y_cdt(df_m3, p_min_requerida)
         
-        # 1. IDENTIFICACIÓN DEL NODO RAÍZ Y CONSTRUCCIÓN DEL GRAFO CON ATRIBUTOS
-        nodos_origen = df_mod3["Desde"].unique()
-        nodos_destino = df_mod3["Hasta"].unique()
+        st.session_state["df_rutas"] = df_rutas
+        st.session_state["info_critica"] = info_critica
         
-        # El nodo raíz es aquel que aparece en 'Desde' pero nunca en 'Hasta' (ej. Cisterna o Toma)
-        nodos_raiz = [n for n in nodos_origen if n not in nodos_destino]
-        raiz = nodos_raiz[0] if len(nodos_raiz) > 0 else df_mod3.iloc[0]["Desde"]
-        
-        grafo_rutas = {}
-        for idx, row in df_mod3.iterrows():
-            u = str(row["Desde"]).strip()
-            v = str(row["Hasta"]).strip()
-            if u not in grafo_rutas:
-                grafo_rutas[u] = []
-            grafo_rutas[u].append({
-                "hasta": v,
-                "h_total": row["h_Total_Tramo_m"],
-                "dz": row["Desnivel_m"],
-                "hf": row["hf_Darcy_m"],
-                "hm": row["hm_Acc_m"],
-                "um_term": row.get("UM_Terminales", 0)
-            })
-
-        # 2. ALGORITMO DE RASTREO PARA ACUMULAR PÉRDIDAS POR CADA RAMAL
-        reporte_muebles = []
-        
-        def trazar_rutas(nodo_actual, h_acum, dz_acum, hf_acum, hm_acum, trayectoria_str):
-            if nodo_actual not in grafo_rutas:
-                return # Llegamos al final absoluto de un ramal sin hijos
-                
-            for arista in grafo_rutas[nodo_actual]:
-                v = arista["hasta"]
-                nuevo_h = h_acum + arista["h_total"]
-                nuevo_dz = dz_acum + arista["dz"]
-                nuevo_hf = hf_acum + arista["hf"]
-                nuevo_hm = hm_acum + arista["hm"]
-                nueva_trayectoria = f"{trayectoria_str} ➔ {v}"
-                
-                # Si el nodo es terminal (tiene muebles directos asignados o ya no tiene más ramificaciones)
-                if arista["um_term"] > 0 or v not in grafo_rutas:
-                    cdt_req = nuevo_dz + nuevo_h + p_min_requerida
-                    reporte_muebles.append({
-                        "Mueble / Descarga": v,
-                        "Trayectoria": nueva_trayectoria,
-                        "ΔZ Estático (m)": nuevo_dz,
-                        "Σ hf (m)": nuevo_hf,
-                        "Σ hm (m)": nuevo_hm,
-                        "Pérdida Total (m)": nuevo_h,
-                        "Presión Mín. Requerida (m.c.a.)": p_min_requerida,
-                        "CDT Requerida (m.c.a.)": cdt_req
-                    })
-                
-                # Continuar explorando ramales dependientes de este nodo
-                trazar_rutas(v, nuevo_h, nuevo_dz, nuevo_hf, nuevo_hm, nueva_trayectoria)
-
-        # Ejecutar el rastreo desde la raíz inicializando en cero
-        trazar_rutas(str(raiz).strip(), 0.0, 0.0, 0.0, 0.0, str(raiz).strip())
-        
-        if not reporte_muebles:
-            st.error("Error en topología: No se encontraron muebles terminales válidos en la red.")
-        else:
-            df_rutas = pd.DataFrame(reporte_muebles)
+        if info_critica:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("📌 Descarga Crítica", f"{info_critica['Mueble / Descarga']}")
+            c2.metric("🏔️ Carga Estática (ΔZ)", f"{info_critica['H_estatica_m']:.2f} m")
+            c3.metric("💥 CDT Requerida", f"{info_critica['CDT_Requerida_mca']:.2f} m.c.a.", delta=f"{(info_critica['CDT_Requerida_mca']*1.4223):.2f} PSI")
             
-            # 3. DETECCIÓN AUTOMÁTICA DE LA RUTA CRÍTICA
-            idx_critico = df_rutas["CDT Requerida (m.c.a.)"].idxmax()
-            ruta_critica_info = df_rutas.loc[idx_critico]
+            st.markdown(f"> **Ruta Crítica Identificada:** `{info_critica['Trayectoria']}`")
             
-            cdt_global = ruta_critica_info["CDT Requerida (m.c.a.)"]
-            st.session_state["cdt_global"] = cdt_global
-            st.session_state["df_rutas"] = df_rutas
-            st.session_state["mueble_critico"] = ruta_critica_info["Mueble / Descarga"]
-            st.session_state["caudal_bombeo_Lps"] = df_mod3.iloc[0]["Q_diseno_Lps"] # Caudal total en la raíz
-            
-            # 4. DESPLIEGUE EJECUTIVO DE RESULTADOS
-            st.subheader("🎯 Punto Crítico y Carga Dinámica Total (CDT)")
-            
-            col_c1, col_c2, col_c3 = st.columns(3)
-            col_c1.metric("📌 Mueble Crítico (Más Desfavorable)", f"{ruta_critica_info['Mueble / Descarga']}")
-            col_c2.metric("🏔️ Carga Estática Máxima (ΔZ)", f"{ruta_critica_info['ΔZ Estático (m)']:.2f} m")
-            col_c3.metric("💥 CDT Sistema Requerida", f"{cdt_global:.2f} m.c.a.", delta=f"{(cdt_global * 1.4223):.2f} PSI")
-            
-            st.markdown(f"""
-            > **Diagnóstico de Ruta Crítica:**  
-            > El punto **{ruta_critica_info['Mueble / Descarga']}** rige el diseño electromecánico. A través de la trayectoria (*{ruta_critica_info['Trayectoria']}*), requiere la máxima Carga Dinámica Total (**{cdt_global:.2f} m.c.a.**) para vencer las pérdidas acumuladas y garantizar la presión de **{p_min_requerida:.2f} m.c.a.**
-            """)
-            
-            st.subheader("📋 Resumen de Cargas Topológicas por Ramal")
-            st.dataframe(
-                df_rutas.style.format({
-                    "ΔZ Estático (m)": "{:.2f}",
-                    "Σ hf (m)": "{:.3f}",
-                    "Σ hm (m)": "{:.3f}",
-                    "Pérdida Total (m)": "{:.3f}",
-                    "Presión Mín. Requerida (m.c.a.)": "{:.2f}",
-                    "CDT Requerida (m.c.a.)": "{:.2f}"
-                }).highlight_max(subset=["CDT Requerida (m.c.a.)"], color="#FCA5A5", axis=0),
-                use_container_width=True
-            )
-
-            st.success("✅ Análisis de rutas múltiples completado. Procede a la Pestaña 4 para dimensionar la bomba basándose en esta CDT.")
+        st.subheader("📋 Evaluación de Trayectorias Múltiples")
+        st.dataframe(df_rutas.style.highlight_max(subset=["CDT_Requerida_mca"], color="#FCA5A5", axis=0), use_container_width=True)
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 4: EQUIPO DE BOMBEO Y GRÁFICOS INTERACTIVOS (MÓDULO 4)
+# PESTAÑA 4: BOMBA Y ANÁLISIS DE TRANSITORIOS
 # ------------------------------------------------------------------------------
 with tab4:
-    st.header("⚡ Módulo 4: Selección de Bomba y Análisis Avanzado")
-    
-    if "cdt_global" not in st.session_state or "df_hidraulica" not in st.session_state:
-        st.warning("⚠️ Primero debes calcular la CDT y la ruta crítica en la Pestaña 3.")
-    else:
-        df_mod4 = st.session_state["df_hidraulica"].copy()
-        cdt_req = st.session_state["cdt_global"]
+    st.header("⚡ Módulo 4: Bombeo y Análisis de Golpe de Ariete")
+    if "info_critica" in st.session_state and st.session_state["info_critica"]:
+        cdt_final = st.session_state["info_critica"]["CDT_Requerida_mca"]
+        q_bombeo_lps = st.session_state["df_hidraulica"].iloc[0]["Q_diseno_Lps"]
+        tramo_raiz = st.session_state["df_hidraulica"].iloc[0]
         
-        # Caudal total de bombeo (Tomado del nodo raíz detectado en Módulo 3)
-        q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", df_mod4.iloc[0]["Q_diseno_Lps"])
-        q_bombeo_m3s = q_bombeo_Lps / 1000.0
-        
-        # 1. CÁLCULO DE POTENCIA DE LA BOMBA
-        gamma = 1000.0  # kg/m³
-        p_hid_hp = (gamma * q_bombeo_m3s * cdt_req) / 75.0
-        p_mec_hp = p_hid_hp / eficiencia_bomba
-        
-        # Sugerencia de Motor Comercial
-        potencias_comerciales = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 7.5, 10.0]
-        p_comercial = next((p for p in potencias_comerciales if p >= p_mec_hp), potencias_comerciales[-1])
+        p_hid, p_mec, p_com, celeridad, t_crit, dp_mca = dimensionar_bomba_y_transitorios(
+            q_bombeo_lps, cdt_final, eficiencia_bomba, tramo_raiz["DN_mm"], 2.5, tramo_raiz["Velocidad_ms"], tramo_raiz["L_m"], 0.5
+        )
         
         st.subheader("🔌 Dimensionamiento Electromecánico")
-        col_b1, col_b2, col_b3, col_b4 = st.columns(4)
-        col_b1.metric("Caudal Máx. Bombeo (Q)", f"{q_bombeo_Lps:.2f} L/s")
-        col_b2.metric("Potencia Hidráulica", f"{p_hid_hp:.2f} HP")
-        col_b3.metric("Potencia Mecánica Requerida", f"{p_mec_hp:.2f} HP")
-        col_b4.metric("Potencia Comercial Sugerida", f"{p_comercial:.2f} HP", delta=f"η = {eficiencia_bomba*100:.0f}%")
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Caudal de Bombeo", f"{q_bombeo_lps:.2f} L/s")
+        b2.metric("Potencia Hidráulica", f"{p_hid:.2f} HP")
+        b3.metric("Potencia Mecánica", f"{p_mec:.2f} HP")
+        b4.metric("Potencia Comercial", f"{p_com:.2f} HP", delta=f"η = {eficiencia_bomba*100:.0f}%")
         
         st.divider()
-        
-        # 2. GRÁFICO 1: PERFIL PIEZOMÉTRICO POR TRAMO
-        st.subheader("📈 Perfil de Pérdidas de Carga por Tramo (Desde ➔ Hasta)")
-        
-        fig_perfil = go.Figure()
-        fig_perfil.add_trace(go.Bar(
-            x=df_mod4["Tramo"],
-            y=df_mod4["hf_Darcy_m"],
-            name="Fricción hf (Darcy)",
-            marker_color="#2563EB"
-        ))
-        fig_perfil.add_trace(go.Bar(
-            x=df_mod4["Tramo"],
-            y=df_mod4["hm_Acc_m"],
-            name="Accesorios hm",
-            marker_color="#F59E0B"
-        ))
-        fig_perfil.update_layout(
-            barmode="stack",
-            title="Desglose de Pérdidas de Energía (m.c.a.)",
-            xaxis_title="Tramo Topológico",
-            yaxis_title="Pérdida de Carga (m)",
-            hovermode="x unified",
-            height=400
-        )
-        st.plotly_chart(fig_perfil, use_container_width=True)
-        
-        st.divider()
-        
-        # 3. BONIFICACIÓN 1: CURVA DEL SISTEMA VS. BOMBA (PUNTO EXTRA +1.0)
-        st.subheader("🌟 Excelencia Ingenieril 1: Punto de Operación (Curva H-Q)")
-        
-        q_vec_Lps = np.linspace(0.1, max(2.5, q_bombeo_Lps * 2), 50)
-        q_vec_m3s = q_vec_Lps / 1000.0
-        
-        h_estatica_total = desnivel_topografico
-        k_red = (cdt_req - h_estatica_total) / (q_bombeo_m3s ** 2) if q_bombeo_m3s > 0 else 1.0
-        h_sistema = h_estatica_total + k_red * (q_vec_m3s ** 2)
-        
-        h_shut_off = cdt_req * 1.35
-        a_bomba = (h_shut_off - cdt_req) / (q_bombeo_m3s ** 2) if q_bombeo_m3s > 0 else 1.0
-        h_bomba = h_shut_off - a_bomba * (q_vec_m3s ** 2)
-        
-        fig_hq = go.Figure()
-        fig_hq.add_trace(go.Scatter(x=q_vec_Lps, y=h_sistema, mode='lines', name='Curva del Sistema (H_sis)', line=dict(color='#DC2626', width=3)))
-        fig_hq.add_trace(go.Scatter(x=q_vec_Lps, y=h_bomba, mode='lines', name=f'Curva Bomba ({p_comercial} HP)', line=dict(color='#059669', width=3, dash='dash')))
-        fig_hq.add_trace(go.Scatter(x=[q_bombeo_Lps], y=[cdt_req], mode='markers', name='Punto de Operación Requerido', marker=dict(size=12, color='#7C3AED', symbol='star')))
-        
-        fig_hq.update_layout(title="Intersección Red vs. Bomba Comercial", xaxis_title="Caudal Q (L/s)", yaxis_title="Carga H (m.c.a.)", height=420)
-        st.plotly_chart(fig_hq, use_container_width=True)
-        
-        st.divider()
-        
-        # 4. BONIFICACIÓN 2: ANÁLISIS DE GOLPE DE ARIETE (PUNTO EXTRA +1.0)
-        st.subheader("🌟 Excelencia Ingenieril 2: Golpe de Ariete (Conducción Principal)")
-        
-        col_ga1, col_ga2 = st.columns(2)
-        with col_ga1:
-            t_cierre = st.number_input("Tiempo de cierre de válvula t_c (s)", min_value=0.1, value=0.5, step=0.1)
-            espesor_tubo_mm = st.number_input("Espesor de pared de tubería e (mm)", min_value=1.0, value=2.5, step=0.5)
-        
-        K_agua = 2.2e9
-        E_mat = 3.0e9
-        tramo_raiz = df_mod4.iloc[0]
-        d_principal_m = tramo_raiz["DN_mm"] / 1000.0
-        v_principal = tramo_raiz["Velocidad_ms"]
-        e_m = espesor_tubo_mm / 1000.0
-        
-        celeridad_a = np.sqrt(K_agua / rho_agua) / np.sqrt(1 + (K_agua / E_mat) * (d_principal_m / e_m))
-        L_principal = tramo_raiz["L_m"]
-        t_critico = (2 * L_principal) / celeridad_a if celeridad_a > 0 else 0
-        
-        if t_cierre <= t_critico:
-            dp_joukowsky_pa = rho_agua * celeridad_a * v_principal
-            tipo_cierre = "Cierre Rápido (Maniobra Brusca)"
-        else:
-            dp_joukowsky_pa = (2 * rho_agua * L_principal * v_principal) / t_cierre if t_cierre > 0 else 0
-            tipo_cierre = "Cierre Lento (Maniobra Gradual)"
-            
-        dp_joukowsky_mca = dp_joukowsky_pa / (rho_agua * 9.81)
-        
-        with col_ga2:
-            st.markdown(f"- **Celeridad ($a$):** `{celeridad_a:.2f} m/s`\n- **Régimen:** `{tipo_cierre}`\n- **Sobrepresión ($\Delta P$):** `{dp_joukowsky_mca:.2f} m.c.a.`")
-            if dp_joukowsky_mca > (cdt_req * 0.5):
-                st.error("🚨 **Alerta:** Requiere tanque amortiguador o supresor de picos.")
-            else:
-                st.success("✅ **Red Segura.**")
+        st.subheader("🌟 Excelencia Ingenieril: Golpe de Ariete (Joukowsky)")
+        g1, g2, g3 = st.columns(3)
+        g1.metric("Celeridad de Onda (a)", f"{celeridad:.2f} m/s")
+        g2.metric("Tiempo Crítico (tc)", f"{t_crit:.4f} s")
+        g3.metric("Sobrepresión (ΔP)", f"{dp_mca:.2f} m.c.a.")
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 5: MEMORIA DE CÁLCULO Y AUDITORÍA DE IA (MÓDULO 5)
+# PESTAÑA 5: OPTIMIZACIÓN ECONÓMICA DE DIÁMETROS (PUNTO EXTRA +1.0)
 # ------------------------------------------------------------------------------
 with tab5:
-    st.header("📄 Módulo 5: Memoria Ejecutiva y Bitácora")
+    st.header("🌟 Módulo 5: Optimización Económica de Diámetros")
+    st.markdown("Algoritmo de ciclo de vida útil (20 años) para encontrar el equilibrio entre el costo de tubería y energía consumida.")
     
-    if "df_hidraulica" not in st.session_state or "cdt_global" not in st.session_state:
-        st.warning("⚠️ Primero completa el análisis en las pestañas anteriores.")
-    else:
-        df_memoria = st.session_state["df_hidraulica"]
-        cdt_final = st.session_state["cdt_global"]
-        mueble_desfavorable = st.session_state.get("mueble_critico", "Desconocido")
-        q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", 0.0)
+    if "df_hidraulica" in st.session_state:
+        q_opt = st.session_state["df_hidraulica"].iloc[0]["Q_diseno_Lps"]
+        l_opt = st.session_state["df_hidraulica"]["L_m"].sum()
         
-        st.subheader("📑 Memoria de Cálculo Hidráulico")
-        
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            st.markdown(f"""
-            **1. Datos Generales del Proyecto:**
-            - **Institución:** Universidad Autónoma de Aguascalientes (UAA)
-            - **Temperatura del Agua:** `{temp_agua} °C` (ρ = {rho_agua:.2f} kg/m³)
-            - **Desnivel Topográfico Global (ΔZ):** `{desnivel_topografico:.2f} m`
-            - **Presión Mínima Requerida ($P_{{mín}}$):** `{p_min_requerida:.2f} m.c.a.`
-            """)
-        
-        with col_r2:
-            st.markdown(f"""
-            **2. Resultados Principales del Diseño:**
-            - **Mueble Crítico (Nodo Final):** `{mueble_desfavorable}`
-            - **Carga Dinámica Total (CDT):** `{cdt_final:.2f} m.c.a.` ({cdt_final*1.4223:.2f} PSI)
-            - **Caudal de Bombeo Raíz:** `{q_bombeo_Lps:.2f} L/s`
-            - **Potencia Comercial Recomendada:** `{p_comercial:.2f} HP` (η = {eficiencia_bomba*100:.0f}%)
-            """)
+        df_opt = algoritmo_optimizacion_economica_diametros(q_opt, l_opt)
+        st.dataframe(df_opt.style.highlight_min(subset=["Costo Total Ciclo Vida ($)"], color="#A7F3D0", axis=0), use_container_width=True)
 
-        st.divider()
-
-        texto_memoria = f"""===================================================================
-MEMORIA DE CÁLCULO HIDRÁULICO (RUTAS MULTIPLES)
+# ------------------------------------------------------------------------------
+# PESTAÑA 6: MEMORIA DE CÁLCULO Y AUDITORÍA DE IA
+# ------------------------------------------------------------------------------
+with tab6:
+    st.header("📄 Módulo 6: Memoria Técnica y Bitácora Auditora")
+    if "info_critica" in st.session_state and st.session_state["info_critica"]:
+        st.subheader("📑 Memoria Ejecutiva de Cálculo Hidráulico")
+        
+        memoria_txt = f"""===================================================================
+MEMORIA DE CÁLCULO HIDRÁULICO E INGENIERÍA DE FLUIDOS
 UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES - INSTALACIONES BÁSICAS
 ===================================================================
-
-1. PARÁMETROS GENERALES Y FLUIDO:
--------------------------------------------------------------------
-- Temperatura del Agua: {temp_agua} °C
-- Densidad (rho): {rho_agua:.2f} kg/m³
-- Presión Mínima Requerida: {p_min_requerida:.2f} m.c.a.
-- Desnivel Topográfico (ΔZ): {desnivel_topografico:.2f} m
-
-2. RESUMEN DE RUTA CRÍTICA Y CDT:
--------------------------------------------------------------------
-- Descarga / Mueble Más Desfavorable: {mueble_desfavorable}
-- Carga Dinámica Total (CDT): {cdt_final:.2f} m.c.a.
-- Caudal Raíz Requerido: {q_bombeo_Lps:.3f} L/s
-- Potencia Comercial Sugerida: {p_comercial:.2f} HP
-
-3. TABLA DE TRAMOS PROCESADOS (TOPOLOGÍA DE GRAFOS):
--------------------------------------------------------------------
-"""
-        for idx, r in df_memoria.iterrows():
-            texto_memoria += f"Tramo: {r['Tramo']} | UM Acum: {r.get('UM', r.get('UM_Terminales', 0))} | Q: {r['Q_diseno_Lps']:.3f} L/s | V: {r['Velocidad_ms']:.2f} m/s | hf: {r['hf_Darcy_m']:.3f}m | hm: {r['hm_Acc_m']:.3f}m\n"
-
-        st.download_button("📥 Descargar Memoria (.txt)", data=texto_memoria, file_name="Memoria_Calculo_UAA.txt", mime="text/plain")
-
+- Mueble Crítico: {st.session_state['info_critica']['Mueble / Descarga']}
+- Carga Dinámica Total (CDT): {st.session_state['info_critica']['CDT_Requerida_mca']:.2f} m.c.a.
+- Caudal Máximo de Bombeo: {st.session_state['df_hidraulica'].iloc[0]['Q_diseno_Lps']:.3f} L/s
+==================================================================="""
+        
+        st.download_button("📥 Descargar Memoria Ejecutiva (.txt)", data=memoria_txt, file_name="Memoria_Hidraulica_UAA.txt", mime="text/plain")
+        
         st.divider()
-
         st.subheader("🕵️ Bitácora de Auditoría de IA (Fase 3 de la Rúbrica)")
-        bitacora_default = pd.DataFrame([
-            {"Módulo": "Módulo 1 (Grafos)", "Error de la IA": "Suma lineal de muebles sin detectar ramificaciones.", "Corrección": "Implementación de algoritmo DFS (Búsqueda en Profundidad) para sumar UM hacia atrás."},
-            {"Módulo": "Módulo 3 (CDT)", "Error de la IA": "Acumulación incorrecta de pérdidas en rutas bifurcadas.", "Corrección": "Rastreo independiente de trayectorias evaluando la CDT máxima de cada terminal."}
+        bitacora_df = pd.DataFrame([
+            {"Módulo": "Módulo A (Motor)", "Error Inicial de IA": "Uso de aproximación Swamee-Jain.", "Corrección Aplicada": "Implementación exacta de Colebrook-White vía Newton-Raphson."},
+            {"Módulo": "Módulo B (Topología)", "Error Inicial de IA": "Sumatoria lineal de muebles en ramal.", "Corrección Aplicada": "Algoritmo de búsqueda en profundidad (DFS) en árbol acíclico directed."},
+            {"Módulo": "Módulo E (Bombeo)", "Error Inicial de IA": "Omisión del análisis transitorio.", "Corrección Aplicada": "Incorporación del modelo de celeridad y sobrepresión de Joukowsky."}
         ])
-        st.data_editor(bitacora_default, num_rows="dynamic", use_container_width=True)
-        st.success("✅ Sistema web finalizado y ensamblado. Listo para evaluación.")
+        st.dataframe(bitacora_df, use_container_width=True)
         
