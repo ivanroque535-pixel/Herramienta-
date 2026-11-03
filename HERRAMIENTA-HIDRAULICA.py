@@ -356,8 +356,9 @@ with tab2:
 with tab3:
     st.header("🗺️ Módulo 3: Ruta Crítica y Carga Dinámica Total (CDT)")
     
-    if "df_hidraulica" not in st.session_state or "h_Total_Tramo_m" not in st.session_state["df_hidraulica"].columns:
-        st.warning("⚠️ Primero debes procesar la evaluación de pérdidas en la Pestaña 2.")
+    # CORRECCIÓN AQUÍ: Agregamos la validación para detener el código si la tabla está vacía (.empty)
+    if "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty or "h_Total_Tramo_m" not in st.session_state["df_hidraulica"].columns:
+        st.warning("⚠️ La tabla de tramos está vacía o sin procesar. Ingresa los datos en la Pestaña 1.")
     else:
         df_mod3 = st.session_state["df_hidraulica"].copy()
         
