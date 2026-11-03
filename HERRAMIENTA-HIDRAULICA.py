@@ -454,8 +454,8 @@ with tab4:
         df_mod4 = st.session_state["df_hidraulica"].copy()
         cdt_req = st.session_state["cdt_global"]
         
-        # Caudal total de bombeo (Tramo Principal Cisterna -> TDT)
-        q_bombeo_Lps = df_mod4.iloc[0]["Q_diseno_Lps"]
+        # Caudal total de bombeo (Tomado del nodo raíz detectado en Módulo 3)
+        q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", df_mod4.iloc[0]["Q_diseno_Lps"])
         q_bombeo_m3s = q_bombeo_Lps / 1000.0
         
         # 1. CÁLCULO DE POTENCIA DE LA BOMBA
@@ -469,33 +469,33 @@ with tab4:
         
         st.subheader("🔌 Dimensionamiento Electromecánico")
         col_b1, col_b2, col_b3, col_b4 = st.columns(4)
-        col_b1.metric("Caudal de Bombeo (Q)", f"{q_bombeo_Lps:.2f} L/s")
+        col_b1.metric("Caudal Máx. Bombeo (Q)", f"{q_bombeo_Lps:.2f} L/s")
         col_b2.metric("Potencia Hidráulica", f"{p_hid_hp:.2f} HP")
         col_b3.metric("Potencia Mecánica Requerida", f"{p_mec_hp:.2f} HP")
         col_b4.metric("Potencia Comercial Sugerida", f"{p_comercial:.2f} HP", delta=f"η = {eficiencia_bomba*100:.0f}%")
         
         st.divider()
         
-        # 2. GRÁFICO 1: PERFIL PIEZOMÉTRICO Y PÉRDIDAS ACUMULADAS POR TRAMO
-        st.subheader("📈 Perfil de Pérdidas de Carga por Tramo")
+        # 2. GRÁFICO 1: PERFIL PIEZOMÉTRICO POR TRAMO
+        st.subheader("📈 Perfil de Pérdidas de Carga por Tramo (Desde ➔ Hasta)")
         
         fig_perfil = go.Figure()
         fig_perfil.add_trace(go.Bar(
             x=df_mod4["Tramo"],
             y=df_mod4["hf_Darcy_m"],
-            name="Pérdida por Fricción hf (Darcy)",
+            name="Fricción hf (Darcy)",
             marker_color="#2563EB"
         ))
         fig_perfil.add_trace(go.Bar(
             x=df_mod4["Tramo"],
             y=df_mod4["hm_Acc_m"],
-            name="Pérdidas Menores hm (Accesorios)",
+            name="Accesorios hm",
             marker_color="#F59E0B"
         ))
         fig_perfil.update_layout(
             barmode="stack",
-            title="Desglose de Pérdidas de Energía por Tramo (m.c.a.)",
-            xaxis_title="Tramo de Tubería",
+            title="Desglose de Pérdidas de Energía (m.c.a.)",
+            xaxis_title="Tramo Topológico",
             yaxis_title="Pérdida de Carga (m)",
             hovermode="x unified",
             height=400
@@ -504,98 +504,79 @@ with tab4:
         
         st.divider()
         
-        # 3. BONIFICACIÓN 1: CURVA CARACTERÍSTICA DEL SISTEMA VS. BOMBA (PUNTO EXTRA +1.0)
-        st.subheader("🌟 Excelencia Ingenieril 1: Punto de Operación (Curva Sistema vs. Bomba)")
+        # 3. BONIFICACIÓN 1: CURVA DEL SISTEMA VS. BOMBA (PUNTO EXTRA +1.0)
+        st.subheader("🌟 Excelencia Ingenieril 1: Punto de Operación (Curva H-Q)")
         
-        # Generación de curvas en función de Q
         q_vec_Lps = np.linspace(0.1, max(2.5, q_bombeo_Lps * 2), 50)
         q_vec_m3s = q_vec_Lps / 1000.0
         
-        # Coeficiente de resistencia de la red K_red (H_sis = H_est + K_red * Q²)
         h_estatica_total = desnivel_topografico
         k_red = (cdt_req - h_estatica_total) / (q_bombeo_m3s ** 2) if q_bombeo_m3s > 0 else 1.0
         h_sistema = h_estatica_total + k_red * (q_vec_m3s ** 2)
         
-        # Modelo de Curva del Fabricante de la bomba comercial seleccionada
         h_shut_off = cdt_req * 1.35
         a_bomba = (h_shut_off - cdt_req) / (q_bombeo_m3s ** 2) if q_bombeo_m3s > 0 else 1.0
         h_bomba = h_shut_off - a_bomba * (q_vec_m3s ** 2)
         
         fig_hq = go.Figure()
         fig_hq.add_trace(go.Scatter(x=q_vec_Lps, y=h_sistema, mode='lines', name='Curva del Sistema (H_sis)', line=dict(color='#DC2626', width=3)))
-        fig_hq.add_trace(go.Scatter(x=q_vec_Lps, y=h_bomba, mode='lines', name=f'Curva Bomba Comercial ({p_comercial} HP)', line=dict(color='#059669', width=3, dash='dash')))
+        fig_hq.add_trace(go.Scatter(x=q_vec_Lps, y=h_bomba, mode='lines', name=f'Curva Bomba ({p_comercial} HP)', line=dict(color='#059669', width=3, dash='dash')))
         fig_hq.add_trace(go.Scatter(x=[q_bombeo_Lps], y=[cdt_req], mode='markers', name='Punto de Operación Requerido', marker=dict(size=12, color='#7C3AED', symbol='star')))
         
-        fig_hq.update_layout(
-            title="Intersección Curva Característica de la Red vs. Bomba Comercial",
-            xaxis_title="Caudal Q (L/s)",
-            yaxis_title="Carga H (m.c.a.)",
-            height=420
-        )
+        fig_hq.update_layout(title="Intersección Red vs. Bomba Comercial", xaxis_title="Caudal Q (L/s)", yaxis_title="Carga H (m.c.a.)", height=420)
         st.plotly_chart(fig_hq, use_container_width=True)
         
         st.divider()
         
         # 4. BONIFICACIÓN 2: ANÁLISIS DE GOLPE DE ARIETE (PUNTO EXTRA +1.0)
-        st.subheader("🌟 Excelencia Ingenieril 2: Análisis Transitorio de Golpe de Ariete")
+        st.subheader("🌟 Excelencia Ingenieril 2: Golpe de Ariete (Conducción Principal)")
         
         col_ga1, col_ga2 = st.columns(2)
         with col_ga1:
             t_cierre = st.number_input("Tiempo de cierre de válvula t_c (s)", min_value=0.1, value=0.5, step=0.1)
             espesor_tubo_mm = st.number_input("Espesor de pared de tubería e (mm)", min_value=1.0, value=2.5, step=0.5)
         
-        # Parámetros físicos del fluido y material (CPVC/PVC)
-        K_agua = 2.2e9   # Módulo de elasticidad del agua (Pa)
-        E_mat = 3.0e9    # Módulo de elasticidad CPVC/PVC (Pa)
-        d_principal_m = df_mod4.iloc[0]["DN_mm"] / 1000.0
-        v_principal = df_mod4.iloc[0]["Velocidad_ms"]
+        K_agua = 2.2e9
+        E_mat = 3.0e9
+        tramo_raiz = df_mod4.iloc[0]
+        d_principal_m = tramo_raiz["DN_mm"] / 1000.0
+        v_principal = tramo_raiz["Velocidad_ms"]
         e_m = espesor_tubo_mm / 1000.0
         
-        # Celeridad a (m/s)
         celeridad_a = np.sqrt(K_agua / rho_agua) / np.sqrt(1 + (K_agua / E_mat) * (d_principal_m / e_m))
+        L_principal = tramo_raiz["L_m"]
+        t_critico = (2 * L_principal) / celeridad_a if celeridad_a > 0 else 0
         
-        # Tiempo crítico de la conducción Tc = 2L / a
-        L_principal = df_mod4.iloc[0]["L_m"]
-        t_critico = (2 * L_principal) / celeridad_a
-        
-        # Sobretensión de Joukowsky ΔP (m.c.a.)
         if t_cierre <= t_critico:
             dp_joukowsky_pa = rho_agua * celeridad_a * v_principal
             tipo_cierre = "Cierre Rápido (Maniobra Brusca)"
         else:
-            dp_joukowsky_pa = (2 * rho_agua * L_principal * v_principal) / t_cierre
+            dp_joukowsky_pa = (2 * rho_agua * L_principal * v_principal) / t_cierre if t_cierre > 0 else 0
             tipo_cierre = "Cierre Lento (Maniobra Gradual)"
             
         dp_joukowsky_mca = dp_joukowsky_pa / (rho_agua * 9.81)
         
         with col_ga2:
-            st.markdown(f"""
-            - **Celeridad de la onda ($a$):** `{celeridad_a:.2f} m/s`
-            - **Tiempo Crítico ($T_c = 2L/a$):** `{t_critico:.4f} s`
-            - **Régimen de Cierre:** `{tipo_cierre}`
-            - **Sobrepresión de Ariete ($\Delta P$):** `{dp_joukowsky_mca:.2f} m.c.a.`
-            """)
+            st.markdown(f"- **Celeridad ($a$):** `{celeridad_a:.2f} m/s`\n- **Régimen:** `{tipo_cierre}`\n- **Sobrepresión ($\Delta P$):** `{dp_joukowsky_mca:.2f} m.c.a.`")
             if dp_joukowsky_mca > (cdt_req * 0.5):
-                st.error("🚨 **Alerta de Sobretensión:** Se recomienda instalar un tanque amortiguador o supresor de picos de presión.")
+                st.error("🚨 **Alerta:** Requiere tanque amortiguador o supresor de picos.")
             else:
-                st.success("✅ **Red Segura:** La sobrepresión transitoria está dentro de los márgenes de seguridad de la tubería.")
-
-        st.success("✅ Módulo 4 completado con éxito. Procede a la Pestaña 5 para la Memoria de Cálculo Ejecutiva y Auditoría de IA.")
+                st.success("✅ **Red Segura.**")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 5: MEMORIA DE CÁLCULO Y AUDITORÍA DE IA (MÓDULO 5)
 # ------------------------------------------------------------------------------
 with tab5:
-    st.header("📄 Módulo 5: Memoria Ejecutiva y Bitácora de Auditoría de IA")
+    st.header("📄 Módulo 5: Memoria Ejecutiva y Bitácora")
     
     if "df_hidraulica" not in st.session_state or "cdt_global" not in st.session_state:
-        st.warning("⚠️ Primero debes completar el análisis en las pestañas anteriores para generar la memoria.")
+        st.warning("⚠️ Primero completa el análisis en las pestañas anteriores.")
     else:
         df_memoria = st.session_state["df_hidraulica"]
         cdt_final = st.session_state["cdt_global"]
-        mueble_desfavorable = st.session_state.get("mueble_critico", "Regadera P.A.")
+        mueble_desfavorable = st.session_state.get("mueble_critico", "Desconocido")
+        q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", 0.0)
         
-        # 1. RESUMEN EJECUTIVO DE MEMORIA DE CÁLCULO
         st.subheader("📑 Memoria de Cálculo Hidráulico")
         
         col_r1, col_r2 = st.columns(2)
@@ -603,29 +584,24 @@ with tab5:
             st.markdown(f"""
             **1. Datos Generales del Proyecto:**
             - **Institución:** Universidad Autónoma de Aguascalientes (UAA)
-            - **Asignatura:** Instalaciones Básicas (5.º Semestre)
-            - **Normativa Aplicada:** MAPAS-CONAGUA / Ecuaciones Fundamentales
             - **Temperatura del Agua:** `{temp_agua} °C` (ρ = {rho_agua:.2f} kg/m³)
-            - **Desnivel Topográfico Total (ΔZ):** `{desnivel_topografico:.2f} m`
+            - **Desnivel Topográfico Global (ΔZ):** `{desnivel_topografico:.2f} m`
             - **Presión Mínima Requerida ($P_{{mín}}$):** `{p_min_requerida:.2f} m.c.a.`
             """)
         
         with col_r2:
             st.markdown(f"""
             **2. Resultados Principales del Diseño:**
-            - **Mueble Crítico Detectado:** `{mueble_desfavorable}`
+            - **Mueble Crítico (Nodo Final):** `{mueble_desfavorable}`
             - **Carga Dinámica Total (CDT):** `{cdt_final:.2f} m.c.a.` ({cdt_final*1.4223:.2f} PSI)
-            - **Pérdidas por Fricción Totales (Darcy):** `{df_memoria['hf_Darcy_m'].sum():.3f} m`
-            - **Pérdidas Menores Totales ($h_m$):** `{df_memoria['hm_Acc_m'].sum():.3f} m`
-            - **Potencia Mecánica Requerida:** `{p_mec_hp:.2f} HP`
+            - **Caudal de Bombeo Raíz:** `{q_bombeo_Lps:.2f} L/s`
             - **Potencia Comercial Recomendada:** `{p_comercial:.2f} HP` (η = {eficiencia_bomba*100:.0f}%)
             """)
 
         st.divider()
 
-        # Generación de Texto Formateado para Descarga
         texto_memoria = f"""===================================================================
-MEMORIA DE CÁLCULO HIDRÁULICO Y DIMENSIONAMIENTO DE BOMBEOMEDIANTE IA
+MEMORIA DE CÁLCULO HIDRÁULICO (RUTAS MULTIPLES)
 UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES - INSTALACIONES BÁSICAS
 ===================================================================
 
@@ -633,32 +609,30 @@ UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES - INSTALACIONES BÁSICAS
 -------------------------------------------------------------------
 - Temperatura del Agua: {temp_agua} °C
 - Densidad (rho): {rho_agua:.2f} kg/m³
-- Viscosidad Cinemática (nu): {nu_agua*1e6:.4f} x10^-6 m²/s
 - Presión Mínima Requerida: {p_min_requerida:.2f} m.c.a.
 - Desnivel Topográfico (ΔZ): {desnivel_topografico:.2f} m
 
 2. RESUMEN DE RUTA CRÍTICA Y CDT:
 -------------------------------------------------------------------
 - Descarga / Mueble Más Desfavorable: {mueble_desfavorable}
-- Carga Dinámica Total (CDT): {cdt_final:.2f} m.c.a. ({cdt_final*1.4223:.2f} PSI)
-- Potencia Mecánica Calculada: {p_mec_hp:.2f} HP
-- Potencia Comercial Sugerida: {p_comercial:.2f} HP (Eficiencia motor: {eficiencia_bomba*100:.0f}%)
+- Carga Dinámica Total (CDT): {cdt_final:.2f} m.c.a.
+- Caudal Raíz Requerido: {q_bombeo_Lps:.3f} L/s
+- Potencia Comercial Sugerida: {p_comercial:.2f} HP
 
-3. TABLA DE TRAMOS PROCESADOS:
+3. TABLA DE TRAMOS PROCESADOS (TOPOLOGÍA DE GRAFOS):
 -------------------------------------------------------------------
 """
         for idx, r in df_memoria.iterrows():
-            texto_memoria += f"Tramo: {r['Tramo']} | Q: {r['Q_diseno_Lps']:.3f} L/s | V: {r['Velocidad_ms']:.2f} m/s | Re: {r['Re']:.0f} | f: {r['Factor_f']:.4f} | hf: {r['hf_Darcy_m']:.3f}m | hm: {r['hm_Acc_m']:.3f}m\n"
+            texto_memoria += f"Tramo: {r['Tramo']} | UM Acum: {r.get('UM', r.get('UM_Terminales', 0))} | Q: {r['Q_diseno_Lps']:.3f} L/s | V: {r['Velocidad_ms']:.2f} m/s | hf: {r['hf_Darcy_m']:.3f}m | hm: {r['hm_Acc_m']:.3f}m\n"
 
-        st.download_button(
-            label="📥 Descargar Memoria de Cálculo Ejecutiva (.txt)",
-            data=texto_memoria,
-            file_name="Memoria_Calculo_Hidraulico_UAA.txt",
-            mime="text/plain"
-        )
+        st.download_button("📥 Descargar Memoria (.txt)", data=texto_memoria, file_name="Memoria_Calculo_UAA.txt", mime="text/plain")
 
         st.divider()
 
-        st.success("✅ ¡Felicidades! Todos los módulos interactivos de la aplicación han sido construidos e integrados exitosamente.")
-    
-    
+        st.subheader("🕵️ Bitácora de Auditoría de IA (Fase 3 de la Rúbrica)")
+        bitacora_default = pd.DataFrame([
+            {"Módulo": "Módulo 1 (Grafos)", "Error de la IA": "Suma lineal de muebles sin detectar ramificaciones.", "Corrección": "Implementación de algoritmo DFS (Búsqueda en Profundidad) para sumar UM hacia atrás."},
+            {"Módulo": "Módulo 3 (CDT)", "Error de la IA": "Acumulación incorrecta de pérdidas en rutas bifurcadas.", "Corrección": "Rastreo independiente de trayectorias evaluando la CDT máxima de cada terminal."}
+        ])
+        st.data_editor(bitacora_default, num_rows="dynamic", use_container_width=True)
+        st.success("✅ Sistema web finalizado y ensamblado. Listo para evaluación.")
