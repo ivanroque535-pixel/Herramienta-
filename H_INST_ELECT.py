@@ -52,11 +52,14 @@ with col1:
     st.header("1. Tramos Derivados (Tablero a Carga)")
     
     nombre_circuito = st.text_input("Nombre del Circuito:", "Circuito 1")
-    tipo_carga = st.radio("Unidad de la Carga:", ["Watts (W)", "Volt-Amperes (VA)"], horizontal=True)
-    carga = st.number_input("Valor de la Carga Nominal:", min_value=0.0, value=1000.0, step=100.0)
+    # AHORA PERMITE INGRESAR AMPERES DIRECTAMENTE
+    tipo_carga = st.radio("Unidad de la Carga:", ["Watts (W)", "Volt-Amperes (VA)", "Amperes Directos (A)"], horizontal=True)
+    carga = st.number_input("Valor de la Carga:", min_value=0.0, value=20.0, step=1.0)
     
     if tipo_carga == "Watts (W)":
         fp = st.number_input("Factor de Potencia (FP):", min_value=0.1, max_value=1.0, value=0.95)
+    elif tipo_carga == "Amperes Directos (A)":
+        fp = st.number_input("Factor de Potencia (FP):", min_value=0.1, max_value=1.0, value=0.85)
     else:
         fp = 1.0
         
@@ -66,19 +69,24 @@ with col1:
 
     with st.expander("🌟 Optimización por Caída de Tensión (Límite 3%)", expanded=True):
         canalizacion = st.selectbox("Canalización:", ["PVC / Aluminio (No Magnético)", "Acero (Magnético)"])
-        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=15.0)
+        longitud = st.number_input("Distancia del circuito L (m):", min_value=1.0, value=40.0)
 
     if st.button("➕ Calcular y Agregar Derivado", type="primary"):
-        if "Monofásico" in tipo_sistema:
-            voltaje = 127
-            corriente_nominal = carga / (voltaje * fp)
-        elif "Bifásico" in tipo_sistema:
-            voltaje = 220
-            corriente_nominal = carga / (voltaje * fp)
+        # Cálculo de Corrientes
+        if tipo_carga == "Amperes Directos (A)":
+            corriente_nominal = carga
         else:
-            voltaje = 220 if "220" in tipo_sistema else 440
-            corriente_nominal = carga / (math.sqrt(3) * voltaje * fp)
+            if "Monofásico" in tipo_sistema:
+                voltaje = 127
+                corriente_nominal = carga / (voltaje * fp)
+            elif "Bifásico" in tipo_sistema:
+                voltaje = 220
+                corriente_nominal = carga / (voltaje * fp)
+            else:
+                voltaje = 220 if "220" in tipo_sistema else 440
+                corriente_nominal = carga / (math.sqrt(3) * voltaje * fp)
 
+        voltaje = 127 if "Monofásico" in tipo_sistema else 220 if "220" in tipo_sistema else 440
         corriente_diseno = corriente_nominal * 1.25
         itm_completo = f"{calcular_capacidad_itm(corriente_diseno)} A ({obtener_polos(tipo_sistema)})"
         
@@ -140,7 +148,6 @@ with col2:
     
     if len(st.session_state.circuitos) > 0:
         df_circuitos = pd.DataFrame(st.session_state.circuitos)
-        # Ocultamos columnas técnicas en la vista para no saturar
         st.dataframe(df_circuitos.drop(columns=['Sistema', 'Calibre Base']), use_container_width=True)
         
         if st.button("🗑️ Borrar Todos"):
@@ -153,13 +160,24 @@ with col2:
             "Monofásico (127 V)", "Bifásico (220 V)", "Trifásico (220 V)", "Trifásico (440 V)"
         ])
         
+        # PERMITE ESPECIFICAR LA CORRIENTE DIRECTA DEL ALIMENTADOR
+        suma_in_auto = sum(c["In (A)"] for c in st.session_state.circuitos)
+        
+        st.markdown("**Configuración de Carga del Alimentador:**")
+        usar_manual_in = st.checkbox("Ingresar corriente de diseño manual para el Alimentador (ej. Caso C: 65 A)")
+        
+        if usar_manual_in:
+            suma_in = st.number_input("Corriente Nominal del Alimentador (In en Amperes):", min_value=1.0, value=65.0)
+            suma_id = suma_in * 1.25
+        else:
+            suma_in = suma_in_auto
+            suma_id = sum(c["Id (A)"] for c in st.session_state.circuitos)
+        
         c1, c2, c3 = st.columns(3)
         conduit_alim = c1.selectbox("Tubería Alimentador:", ["PVC/Aluminio", "Acero"])
-        long_alim = c2.number_input("Longitud L (m):", min_value=1.0, value=20.0)
+        long_alim = c2.number_input("Longitud L del Alimentador (m):", min_value=1.0, value=35.0)
         fp_alim = c3.number_input("FP Global:", min_value=0.5, max_value=1.0, value=0.90)
 
-        suma_in = sum(c["In (A)"] for c in st.session_state.circuitos)
-        suma_id = sum(c["Id (A)"] for c in st.session_state.circuitos)
         voltaje_alim = 127 if "Monofásico" in sistema_principal else 220 if "220" in sistema_principal else 440
         
         calibre_alim_base = obtener_calibre_base(suma_id)
@@ -235,7 +253,7 @@ if len(st.session_state.circuitos) > 0:
         fig_pie.update_layout(annotations=[dict(text=f'Total:<br>{suma_in:.1f} A', x=0.5, y=0.5, font_size=20, showarrow=False)], template="plotly_white")
         st.plotly_chart(fig_pie, use_container_width=True)
 
-    # --- MÓDULO 5: REPORTE EJECUTIVO Y MEMORIA DE CÁLCULO ---
+    # --- MÓDULO 5: REPORTE EJECUTIVO ---
     st.divider()
     st.header("5. Memoria de Cálculo Normativa")
     
