@@ -7,51 +7,99 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-# ==============================================================================
-# FUNCIÓN PARA GENERAR EL EXCEL EJECUTABLE
-# ==============================================================================
-def generar_excel_memoria_calculo(df_memoria, info_critica, temp_agua, p_min_req, desnivel_top):
+import io
+import openpyxl
+import pandas as pd
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+
+
+def generar_excel_memoria_calculo(
+    df_memoria, info_critica, temp_agua, p_min_req, desnivel_top
+):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Memoria Hidráulica UAA"
     ws.views.sheetView[0].showGridLines = True
 
+    # Estilos profesionales
     font_title = Font(name="Calibri", size=14, bold=True, color="1E3A8A")
     font_section = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     font_header = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+    font_bold = Font(name="Calibri", size=10, bold=True)
     font_regular = Font(name="Calibri", size=10)
-    
-    fill_navy = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
-    fill_blue = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
-    thin_border = Side(border_style="thin", color="D1D5DB")
-    border_cell = Border(left=thin_border, right=thin_border, top=thin_border, bottom=thin_border)
+    font_italic = Font(name="Calibri", size=9, italic=True)
 
+    fill_navy = PatternFill(
+        start_color="1E3A8A", end_color="1E3A8A", fill_type="solid"
+    )
+    fill_blue = PatternFill(
+        start_color="2563EB", end_color="2563EB", fill_type="solid"
+    )
+    fill_critico = PatternFill(
+        start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"
+    )
+
+    thin_border = Side(border_style="thin", color="D1D5DB")
+    border_cell = Border(
+        left=thin_border, right=thin_border, top=thin_border, bottom=thin_border
+    )
+
+    # 1. ENCABEZADO INSTITUCIONAL
     ws.merge_cells("A1:S1")
-    ws["A1"] = "UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES — DEPARTAMENTO DE INGENIERÍA CIVIL"
+    ws["A1"] = (
+        "UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES — DEPARTAMENTO DE INGENIERÍA"
+        " CIVIL"
+    )
     ws["A1"].font = font_title
-    
+
     ws.merge_cells("A2:S2")
-    ws["A2"] = "INSTALACIONES BÁSICAS — MEMORIA DE CÁLCULO HIDRÁULICO OFICIAL"
+    ws["A2"] = (
+        "INSTALACIONES BÁSICAS — MEMORIA DE CÁLCULO HIDRÁULICO Y BOMBEO OFICIAL"
+    )
     ws["A2"].font = Font(name="Calibri", size=11, bold=True, color="2563EB")
 
+    # 2. SECCIÓN 1: TABLA RESUMEN DE CÁLCULO POR TRAMOS
     ws.merge_cells("A4:S4")
-    ws["A4"] = "1. TABLA RESUMEN DE CÁLCULO POR TRAMOS (DARCY-WEISBACH VS HAZEN-WILLIAMS)"
+    ws["A4"] = (
+        "1. TABLA RESUMEN DE CÁLCULO POR TRAMOS (DARCY-WEISBACH VS"
+        " HAZEN-WILLIAMS)"
+    )
     ws["A4"].font = font_section
     ws["A4"].fill = fill_navy
 
     headers = [
-        "Tramo", "Nodo Inicio", "Nodo Fin", "Longitud L (m)", "DN (mm)", "D real (m)",
-        "UM Term.", "UM Acum.", "Q Dis. (L/s)", "Q Dis. (m³/s)", "Velocidad (m/s)",
-        "Estado Vel.", "Re", "Factor f", "hf Darcy (m)", "hf HW (m)", "Σ K Acc.", "hm Acc. (m)", "h Total (m)"
+        "Tramo",
+        "Nodo Inicio",
+        "Nodo Fin",
+        "Longitud L (m)",
+        "DN (mm)",
+        "D real (m)",
+        "UM Term.",
+        "UM Acum.",
+        "Q Dis. (L/s)",
+        "Q Dis. (m³/s)",
+        "Velocidad (m/s)",
+        "Estado Vel.",
+        "Re",
+        "Factor f",
+        "hf Darcy (m)",
+        "hf HW (m)",
+        "Σ K Acc.",
+        "hm Acc. (m)",
+        "h Total (m)",
     ]
 
     for col_idx, h in enumerate(headers, start=1):
         cell = ws.cell(row=5, column=col_idx, value=h)
         cell.font = font_header
         cell.fill = fill_blue
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
 
     row_start = 6
+    num_tramos = len(df_memoria)
     for i, r in df_memoria.iterrows():
         row_num = row_start + i
         ws.cell(row=row_num, column=1, value=str(r.get("Tramo", "")))
@@ -79,16 +127,145 @@ def generar_excel_memoria_calculo(df_memoria, info_critica, temp_agua, p_min_req
             cell.font = font_regular
             cell.border = border_cell
 
+    # 3. SECCIÓN 2: EVALUACIÓN DE TRAYECTORIAS Y RUTA CRÍTICA
+    r_rutas = row_start + num_tramos + 2
+    ws.merge_cells(f"A{r_rutas}:S{r_rutas}")
+    ws[f"A{r_rutas}"] = "2. EVALUACIÓN DE TRAYECTORIAS Y RUTA CRÍTICA DEL SISTEMA"
+    ws[f"A{r_rutas}"].font = font_section
+    ws[f"A{r_rutas}"].fill = fill_navy
+
+    headers_rutas = [
+        "Mueble Terminal",
+        "Trayectoria Topológica",
+        "Desnivel ΔZ (m)",
+        "Σ hf Darcy (m)",
+        "Σ hm Acc. (m)",
+        "Pérdida Total (m)",
+        "Pmin Req. (m.c.a.)",
+        "CDT Requerida (m.c.a.)",
+        "Estado",
+    ]
+    for col_idx, h in enumerate(headers_rutas, start=1):
+        cell = ws.cell(row=r_rutas + 1, column=col_idx, value=h)
+        cell.font = font_header
+        cell.fill = fill_blue
+        cell.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
+
+    df_rutas = st.session_state.get("df_rutas", pd.DataFrame())
+    r_curr = r_rutas + 2
+    if not df_rutas.empty:
+        for idx_r, r_row in df_rutas.iterrows():
+            r = r_curr + idx_r
+            ws.cell(
+                row=r, column=1, value=str(r_row.get("Mueble / Descarga", ""))
+            ).font = font_bold
+            ws.cell(
+                row=r, column=2, value=str(r_row.get("Trayectoria", ""))
+            ).font = font_regular
+            ws.cell(
+                row=r, column=3, value=float(r_row.get("H_estatica_m", 0.0))
+            ).font = font_regular
+            ws.cell(
+                row=r, column=4, value=float(r_row.get("Sum_hf_m", 0.0))
+            ).font = font_regular
+            ws.cell(
+                row=r, column=5, value=float(r_row.get("Sum_hm_m", 0.0))
+            ).font = font_regular
+            ws.cell(
+                row=r, column=6, value=float(r_row.get("Perdida_Total_m", 0.0))
+            ).font = font_regular
+            ws.cell(
+                row=r,
+                column=7,
+                value=float(r_row.get("P_min_req_mca", p_min_req)),
+            ).font = font_regular
+            ws.cell(
+                row=r,
+                column=8,
+                value=float(r_row.get("CDT_Requerida_mca", 0.0)),
+            ).font = font_bold
+
+            is_critico = r_row.get("Mueble / Descarga", "") == info_critica.get(
+                "Mueble / Descarga", ""
+            )
+            ws.cell(
+                row=r, column=9, value="🚨 RUTA CRÍTICA" if is_critico else "OK"
+            ).font = font_bold
+
+            for c in range(1, 10):
+                cell = ws.cell(row=r, column=c)
+                cell.border = border_cell
+                if is_critico:
+                    cell.fill = fill_critico
+                if c in [3, 4, 5, 6, 7, 8]:
+                    cell.number_format = "0.000"
+        r_bomba = r_curr + len(df_rutas) + 2
+    else:
+        r_bomba = r_curr + 2
+
+    # 4. SECCIÓN 3: SECCIÓN DE BOMBEO (TAL COMO TU IMAGEN)
+    ws.merge_cells(f"A{r_bomba}:S{r_bomba}")
+    ws[f"A{r_bomba}"] = (
+        "3. DIMENSIONAMIENTO ELECTROMECÁNICO DEL EQUIPO DE BOMBEO"
+    )
+    ws[f"A{r_bomba}"].font = font_section
+    ws[f"A{r_bomba}"].fill = fill_navy
+
+    row_q = df_memoria.iloc[0]
+    q_bombeo_val = float(row_q.get("Q_diseno_Lps", 0.0))
+    cdt_val = float(info_critica.get("CDT_Requerida_mca", 0.0))
+    eficiencia_val = float(st.session_state.get("eficiencia_bomba", 0.60))
+
+    # Cálculo dinámico de potencias
+    p_hid_val = (1000.0 * (q_bombeo_val / 1000.0) * cdt_val) / 75.0
+    p_mec_val = p_hid_val / eficiencia_val if eficiencia_val > 0 else 0.0
+
+    potencias_comerciales = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 7.5, 10.0]
+    p_comercial = next(
+        (p for p in potencias_comerciales if p >= p_mec_val),
+        potencias_comerciales[-1],
+    )
+
+    bomba_rows = [
+        ("Caudal Máximo de Bombeo (Q)", q_bombeo_val, "L/s"),
+        ("Carga Dinámica Total (CDT):", cdt_val, "m.c.a."),
+        ("Eficiencia Electromecánica (η):", eficiencia_val, "%"),
+        ("Potencia Hidráulica (Phid):", p_hid_val, "HP"),
+        ("Potencia Mecánica Requerida (Pmec):", p_mec_val, "HP"),
+        (
+            "Potencia Comercial Sugerida:",
+            f"{p_comercial:.2f} HP (ó {p_comercial+0.25:.2f} HP)",
+            "HP Comercial",
+        ),
+    ]
+
+    for idx, (lbl, val, unit) in enumerate(bomba_rows, start=r_bomba + 1):
+        ws.cell(row=idx, column=1, value=lbl).font = font_bold
+        c_val = ws.cell(row=idx, column=2, value=val)
+        c_val.font = font_bold
+        c_unit = ws.cell(row=idx, column=3, value=unit)
+        c_unit.font = font_italic
+
+        if "Phid" in lbl or "Pmec" in lbl or "CDT" in lbl or "Caudal" in lbl:
+            c_val.number_format = "0.000"
+        elif "%" in unit:
+            c_val.number_format = "0.00"
+
     for col in ws.columns:
-        max_len = max(len(str(cell.value or '')) for cell in col)
+        max_len = max(len(str(cell.value or "")) for cell in col)
         col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max(max_len + 2, 11)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    ws.column_dimensions["A"].width = 32
+    ws.column_dimensions["B"].width = 24
+    ws.column_dimensions["C"].width = 16
 
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
     return buffer
-
 # ==============================================================================
 # 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS UI
 # ==============================================================================
