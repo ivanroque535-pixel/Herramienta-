@@ -235,18 +235,19 @@ with tab1:
     st.subheader("📊 Vista Previa: Topología Calculada (UM Acumuladas)")
     st.dataframe(df_procesado[["Tramo", "UM_Terminales", "UM", "Q_diseno_Lps", "Acc_K_total"]].rename(columns={"UM": "UM Acumuladas (Aguas Abajo)"}), use_container_width=True)
     st.success(f"✅ Tramos y acumulaciones procesadas ({len(df_procesado)} tramos). Procede a la Pestaña 2.")
-# ------------------------------------------------------------------------------
+    
+   # ------------------------------------------------------------------------------
 # PESTAÑA 2: EVALUACIÓN DUAL DE PÉRDIDAS POR FRICCIÓN (MÓDULO 2)
 # ------------------------------------------------------------------------------
 with tab2:
-    st.header("⚖️ Módulo 2: Pérdidas por Fricción y Pérdidas Menores")
+    st.header("⚖️ Módulo 2: Pérdidas por Fricción y Menores")
     
-    if "df_hidraulica" not in st.session_state:
-        st.warning("⚠️ Primero debes ingresar y procesar los tramos en la Pestaña 1.")
+    # REEMPLAZA EL IF POR ESTE:
+    if "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty:
+        st.warning("⚠️ La tabla está vacía. Primero debes configurar la red en la Pestaña 1.")
     else:
         df_mod2 = st.session_state["df_hidraulica"].copy()
-        g = 9.81  # m/s²
-
+        # ... (el resto de tu código del módulo 2 sigue igual)
         # Funciones de cálculo hidráulico
         def factor_friccion_swamee_jain(re, eps_m, d_m):
             """Calcula el factor de fricción f usando Swamee-Jain (Colebrook-White aprox)"""
@@ -469,11 +470,12 @@ with tab3:
 with tab4:
     st.header("⚡ Módulo 4: Selección de Bomba y Análisis Avanzado")
     
-    if "cdt_global" not in st.session_state or "df_hidraulica" not in st.session_state:
+    # REEMPLAZA EL IF POR ESTE:
+    if "cdt_global" not in st.session_state or "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty:
         st.warning("⚠️ Primero debes calcular la CDT y la ruta crítica en la Pestaña 3.")
     else:
         df_mod4 = st.session_state["df_hidraulica"].copy()
-        cdt_req = st.session_state["cdt_global"]
+        # ... (el resto de tu código del módulo 4 sigue igual)
         
         # Caudal total de bombeo (Tomado del nodo raíz detectado en Módulo 3)
         q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", df_mod4.iloc[0]["Q_diseno_Lps"])
@@ -590,15 +592,12 @@ with tab4:
 with tab5:
     st.header("📄 Módulo 5: Memoria Ejecutiva y Bitácora")
     
-    if "df_hidraulica" not in st.session_state or "cdt_global" not in st.session_state:
+    # REEMPLAZA EL IF POR ESTE:
+    if "df_hidraulica" not in st.session_state or st.session_state["df_hidraulica"].empty or "cdt_global" not in st.session_state:
         st.warning("⚠️ Primero completa el análisis en las pestañas anteriores.")
     else:
         df_memoria = st.session_state["df_hidraulica"]
-        cdt_final = st.session_state["cdt_global"]
-        mueble_desfavorable = st.session_state.get("mueble_critico", "Desconocido")
-        q_bombeo_Lps = st.session_state.get("caudal_bombeo_Lps", 0.0)
-        
-        st.subheader("📑 Memoria de Cálculo Hidráulico")
+        # ... (el resto de tu código del módulo 5 sigue igual)
         
         col_r1, col_r2 = st.columns(2)
         with col_r1:
