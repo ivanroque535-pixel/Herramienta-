@@ -2,6 +2,92 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import io
+import openpyxl
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+
+# ==============================================================================
+# FUNCIÓN PARA GENERAR EL EXCEL EJECUTABLE
+# ==============================================================================
+def generar_excel_memoria_calculo(df_memoria, info_critica, temp_agua, p_min_req, desnivel_top):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Memoria Hidráulica UAA"
+    ws.views.sheetView[0].showGridLines = True
+
+    font_title = Font(name="Calibri", size=14, bold=True, color="1E3A8A")
+    font_section = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_header = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+    font_regular = Font(name="Calibri", size=10)
+    
+    fill_navy = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+    fill_blue = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+    thin_border = Side(border_style="thin", color="D1D5DB")
+    border_cell = Border(left=thin_border, right=thin_border, top=thin_border, bottom=thin_border)
+
+    ws.merge_cells("A1:S1")
+    ws["A1"] = "UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES — DEPARTAMENTO DE INGENIERÍA CIVIL"
+    ws["A1"].font = font_title
+    
+    ws.merge_cells("A2:S2")
+    ws["A2"] = "INSTALACIONES BÁSICAS — MEMORIA DE CÁLCULO HIDRÁULICO OFICIAL"
+    ws["A2"].font = Font(name="Calibri", size=11, bold=True, color="2563EB")
+
+    ws.merge_cells("A4:S4")
+    ws["A4"] = "1. TABLA RESUMEN DE CÁLCULO POR TRAMOS (DARCY-WEISBACH VS HAZEN-WILLIAMS)"
+    ws["A4"].font = font_section
+    ws["A4"].fill = fill_navy
+
+    headers = [
+        "Tramo", "Nodo Inicio", "Nodo Fin", "Longitud L (m)", "DN (mm)", "D real (m)",
+        "UM Term.", "UM Acum.", "Q Dis. (L/s)", "Q Dis. (m³/s)", "Velocidad (m/s)",
+        "Estado Vel.", "Re", "Factor f", "hf Darcy (m)", "hf HW (m)", "Σ K Acc.", "hm Acc. (m)", "h Total (m)"
+    ]
+
+    for col_idx, h in enumerate(headers, start=1):
+        cell = ws.cell(row=5, column=col_idx, value=h)
+        cell.font = font_header
+        cell.fill = fill_blue
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    row_start = 6
+    for i, r in df_memoria.iterrows():
+        row_num = row_start + i
+        ws.cell(row=row_num, column=1, value=str(r.get("Tramo", "")))
+        ws.cell(row=row_num, column=2, value=str(r.get("Desde", "")))
+        ws.cell(row=row_num, column=3, value=str(r.get("Hasta", "")))
+        ws.cell(row=row_num, column=4, value=float(r.get("L_m", 0)))
+        ws.cell(row=row_num, column=5, value=float(r.get("DN_mm", 0)))
+        ws.cell(row=row_num, column=6, value=float(r.get("D_m", 0)))
+        ws.cell(row=row_num, column=7, value=int(r.get("UM_Terminales", 0)))
+        ws.cell(row=row_num, column=8, value=int(r.get("UM_Acumuladas", 0)))
+        ws.cell(row=row_num, column=9, value=float(r.get("Q_diseno_Lps", 0)))
+        ws.cell(row=row_num, column=10, value=float(r.get("Q_diseno_m3s", 0)))
+        ws.cell(row=row_num, column=11, value=float(r.get("Velocidad_ms", 0)))
+        ws.cell(row=row_num, column=12, value=str(r.get("Estado_Velocidad", "")))
+        ws.cell(row=row_num, column=13, value=float(r.get("Re", 0)))
+        ws.cell(row=row_num, column=14, value=float(r.get("Factor_f", 0)))
+        ws.cell(row=row_num, column=15, value=float(r.get("hf_Darcy_m", 0)))
+        ws.cell(row=row_num, column=16, value=float(r.get("hf_HW_m", 0)))
+        ws.cell(row=row_num, column=17, value=float(r.get("Acc_K_total", 0.0)))
+        ws.cell(row=row_num, column=18, value=float(r.get("hm_K_m", 0.0)))
+        ws.cell(row=row_num, column=19, value=float(r.get("h_Total_Tramo_m", 0)))
+
+        for c in range(1, 20):
+            cell = ws.cell(row=row_num, column=c)
+            cell.font = font_regular
+            cell.border = border_cell
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 2, 11)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 # ==============================================================================
 # 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS UI
@@ -508,16 +594,22 @@ with tab6:
     if "info_critica" in st.session_state and st.session_state["info_critica"]:
         st.subheader("📑 Memoria Ejecutiva de Cálculo Hidráulico")
         
-        memoria_txt = f"""===================================================================
-MEMORIA DE CÁLCULO HIDRÁULICO E INGENIERÍA DE FLUIDOS
-UNIVERSIDAD AUTÓNOMA DE AGUASCALIENTES - INSTALACIONES BÁSICAS
-===================================================================
-- Mueble Crítico: {st.session_state['info_critica']['Mueble / Descarga']}
-- Carga Dinámica Total (CDT): {st.session_state['info_critica']['CDT_Requerida_mca']:.2f} m.c.a.
-- Caudal Máximo de Bombeo: {st.session_state['df_hidraulica'].iloc[0]['Q_diseno_Lps']:.3f} L/s
-==================================================================="""
+        # Generar buffer del Excel en memoria
+        excel_buffer = generar_excel_memoria_calculo(
+            st.session_state["df_hidraulica"],
+            st.session_state["info_critica"],
+            temp_agua,
+            p_min_requerida,
+            desnivel_topografico
+        )
         
-        st.download_button("📥 Descargar Memoria Ejecutiva (.txt)", data=memoria_txt, file_name="Memoria_Hidraulica_UAA.txt", mime="text/plain")
+        # Botón de descarga en Excel (.xlsx)
+        st.download_button(
+            label="📊 Descargar Memoria de Cálculo Completa en Excel (.xlsx)",
+            data=excel_buffer,
+            file_name="Memoria_Calculo_Hidraulico_UAA.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         
         st.divider()
         st.subheader("🕵️ Bitácora de Auditoría de IA (Fase 3 de la Rúbrica)")
