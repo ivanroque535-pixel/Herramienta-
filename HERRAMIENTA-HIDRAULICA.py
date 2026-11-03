@@ -331,7 +331,7 @@ with tab2:
         st.success("✅ Evaluación dual realizada. Procede a la Pestaña 3 para determinar la Ruta Crítica y CDT.")
 
 # ------------------------------------------------------------------------------
-# PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL (MÓDULO 3)
+# PESTAÑA 3: RUTA CRÍTICA Y CARGA DINÁMICA TOTAL (MÓDULO 3 CON GRAFOS)
 # ------------------------------------------------------------------------------
 with tab3:
     st.header("🗺️ Módulo 3: Ruta Crítica y Carga Dinámica Total (CDT)")
@@ -341,81 +341,106 @@ with tab3:
     else:
         df_mod3 = st.session_state["df_hidraulica"].copy()
         
-        # Mueble o Tramo Principal (Subida a TDT)
-        tramo_principal = df_mod3.iloc[0]
-        h_perdida_principal = tramo_principal["h_Total_Tramo_m"]
-        dz_principal = tramo_principal["Desnivel_m"]
+        # 1. IDENTIFICACIÓN DEL NODO RAÍZ Y CONSTRUCCIÓN DEL GRAFO CON ATRIBUTOS
+        nodos_origen = df_mod3["Desde"].unique()
+        nodos_destino = df_mod3["Hasta"].unique()
         
-        # Análisis por cada punto de descarga / mueble
+        # El nodo raíz es aquel que aparece en 'Desde' pero nunca en 'Hasta' (ej. Cisterna o Toma)
+        nodos_raiz = [n for n in nodos_origen if n not in nodos_destino]
+        raiz = nodos_raiz[0] if len(nodos_raiz) > 0 else df_mod3.iloc[0]["Desde"]
+        
+        grafo_rutas = {}
+        for idx, row in df_mod3.iterrows():
+            u = str(row["Desde"]).strip()
+            v = str(row["Hasta"]).strip()
+            if u not in grafo_rutas:
+                grafo_rutas[u] = []
+            grafo_rutas[u].append({
+                "hasta": v,
+                "h_total": row["h_Total_Tramo_m"],
+                "dz": row["Desnivel_m"],
+                "hf": row["hf_Darcy_m"],
+                "hm": row["hm_Acc_m"],
+                "um_term": row.get("UM_Terminales", 0)
+            })
+
+        # 2. ALGORITMO DE RASTREO PARA ACUMULAR PÉRDIDAS POR CADA RAMAL
         reporte_muebles = []
         
-        for idx, row in df_mod3.iterrows():
-            if idx == 0:
-                continue  # El primer tramo es la conducción principal (Cisterna -> TDT)
-            
-            mueble = row["Mueble_Final"]
-            tramo_nombre = row["Tramo"]
-            
-            # Acumulación de pérdidas: Tramo Principal + Tramo Específico del Mueble
-            hf_acum = tramo_principal["hf_Darcy_m"] + row["hf_Darcy_m"]
-            hm_acum = tramo_principal["hm_Acc_m"] + row["hm_Acc_m"]
-            h_loss_total = hf_acum + hm_acum
-            
-            # Carga estática acumulada hacia el mueble (m)
-            h_estatica_mueble = dz_principal + row["Desnivel_m"]
-            
-            # CDT requerida exclusivamente para abastecer este mueble específico (m.c.a.)
-            cdt_mueble = h_estatica_mueble + h_loss_total + p_min_requerida
-            
-            reporte_muebles.append({
-                "Mueble / Descarga": mueble,
-                "Trayectoria": f"{tramo_principal['Tramo']} ➔ {tramo_nombre}",
-                "ΔZ Estático (m)": h_estatica_mueble,
-                "Σ hf (m)": hf_acum,
-                "Σ hm (m)": hm_acum,
-                "Pérdida Total (m)": h_loss_total,
-                "Presión Mín. Requerida (m.c.a.)": p_min_requerida,
-                "CDT Requerida (m.c.a.)": cdt_mueble
-            })
-            
-        df_rutas = pd.DataFrame(reporte_muebles)
-        
-        # Detección Algorítmica de la Ruta Crítica (Punto con mayor demanda de CDT)
-        idx_critico = df_rutas["CDT Requerida (m.c.a.)"].idxmax()
-        ruta_critica_info = df_rutas.loc[idx_critico]
-        
-        cdt_global = ruta_critica_info["CDT Requerida (m.c.a.)"]
-        st.session_state["cdt_global"] = cdt_global
-        st.session_state["df_rutas"] = df_rutas
-        st.session_state["mueble_critico"] = ruta_critica_info["Mueble / Descarga"]
-        
-        # Despliegue de Resultados Ejecutivos
-        st.subheader("🎯 Punto Crítico y Carga Dinámica Total (CDT)")
-        
-        col_c1, col_c2, col_c3 = st.columns(3)
-        col_c1.metric("📌 Mueble Crítico (Más Desfavorable)", f"{ruta_critica_info['Mueble / Descarga']}")
-        col_c2.metric("🏔️ Carga Estática Máxima (ΔZ)", f"{ruta_critica_info['ΔZ Estático (m)']:.2f} m")
-        col_c3.metric("💥 CDT Sistema Requerida", f"{cdt_global:.2f} m.c.a.", delta=f"{(cdt_global * 1.4223):.2f} PSI")
-        
-        st.markdown(f"""
-        > **Resultado de Ruta Crítica:**  
-        > El mueble **{ruta_critica_info['Mueble / Descarga']}** rige el diseño electromecánico por requerir la máxima Carga Dinámica Total (**{cdt_global:.2f} m.c.a.**), considerando una presión de salida garantizada de **{p_min_requerida:.2f} m.c.a.**
-        """)
-        
-        st.subheader("📋 Resumen de Cargas Topológicas y Presiones por Mueble")
-        st.dataframe(
-            df_rutas.style.format({
-                "ΔZ Estático (m)": "{:.2f}",
-                "Σ hf (m)": "{:.3f}",
-                "Σ hm (m)": "{:.3f}",
-                "Pérdida Total (m)": "{:.3f}",
-                "Presión Mín. Requerida (m.c.a.)": "{:.2f}",
-                "CDT Requerida (m.c.a.)": "{:.2f}"
-            }).highlight_max(subset=["CDT Requerida (m.c.a.)"], color="#FCA5A5"),
-            use_container_width=True
-        )
+        def trazar_rutas(nodo_actual, h_acum, dz_acum, hf_acum, hm_acum, trayectoria_str):
+            if nodo_actual not in grafo_rutas:
+                return # Llegamos al final absoluto de un ramal sin hijos
+                
+            for arista in grafo_rutas[nodo_actual]:
+                v = arista["hasta"]
+                nuevo_h = h_acum + arista["h_total"]
+                nuevo_dz = dz_acum + arista["dz"]
+                nuevo_hf = hf_acum + arista["hf"]
+                nuevo_hm = hm_acum + arista["hm"]
+                nueva_trayectoria = f"{trayectoria_str} ➔ {v}"
+                
+                # Si el nodo es terminal (tiene muebles directos asignados o ya no tiene más ramificaciones)
+                if arista["um_term"] > 0 or v not in grafo_rutas:
+                    cdt_req = nuevo_dz + nuevo_h + p_min_requerida
+                    reporte_muebles.append({
+                        "Mueble / Descarga": v,
+                        "Trayectoria": nueva_trayectoria,
+                        "ΔZ Estático (m)": nuevo_dz,
+                        "Σ hf (m)": nuevo_hf,
+                        "Σ hm (m)": nuevo_hm,
+                        "Pérdida Total (m)": nuevo_h,
+                        "Presión Mín. Requerida (m.c.a.)": p_min_requerida,
+                        "CDT Requerida (m.c.a.)": cdt_req
+                    })
+                
+                # Continuar explorando ramales dependientes de este nodo
+                trazar_rutas(v, nuevo_h, nuevo_dz, nuevo_hf, nuevo_hm, nueva_trayectoria)
 
-        st.success("✅ Ruta crítica e identificación de CDT completadas. Procede a la Pestaña 4 para dimensionar la bomba y ver los gráficos.")
+        # Ejecutar el rastreo desde la raíz inicializando en cero
+        trazar_rutas(str(raiz).strip(), 0.0, 0.0, 0.0, 0.0, str(raiz).strip())
+        
+        if not reporte_muebles:
+            st.error("Error en topología: No se encontraron muebles terminales válidos en la red.")
+        else:
+            df_rutas = pd.DataFrame(reporte_muebles)
+            
+            # 3. DETECCIÓN AUTOMÁTICA DE LA RUTA CRÍTICA
+            idx_critico = df_rutas["CDT Requerida (m.c.a.)"].idxmax()
+            ruta_critica_info = df_rutas.loc[idx_critico]
+            
+            cdt_global = ruta_critica_info["CDT Requerida (m.c.a.)"]
+            st.session_state["cdt_global"] = cdt_global
+            st.session_state["df_rutas"] = df_rutas
+            st.session_state["mueble_critico"] = ruta_critica_info["Mueble / Descarga"]
+            st.session_state["caudal_bombeo_Lps"] = df_mod3.iloc[0]["Q_diseno_Lps"] # Caudal total en la raíz
+            
+            # 4. DESPLIEGUE EJECUTIVO DE RESULTADOS
+            st.subheader("🎯 Punto Crítico y Carga Dinámica Total (CDT)")
+            
+            col_c1, col_c2, col_c3 = st.columns(3)
+            col_c1.metric("📌 Mueble Crítico (Más Desfavorable)", f"{ruta_critica_info['Mueble / Descarga']}")
+            col_c2.metric("🏔️ Carga Estática Máxima (ΔZ)", f"{ruta_critica_info['ΔZ Estático (m)']:.2f} m")
+            col_c3.metric("💥 CDT Sistema Requerida", f"{cdt_global:.2f} m.c.a.", delta=f"{(cdt_global * 1.4223):.2f} PSI")
+            
+            st.markdown(f"""
+            > **Diagnóstico de Ruta Crítica:**  
+            > El punto **{ruta_critica_info['Mueble / Descarga']}** rige el diseño electromecánico. A través de la trayectoria (*{ruta_critica_info['Trayectoria']}*), requiere la máxima Carga Dinámica Total (**{cdt_global:.2f} m.c.a.**) para vencer las pérdidas acumuladas y garantizar la presión de **{p_min_requerida:.2f} m.c.a.**
+            """)
+            
+            st.subheader("📋 Resumen de Cargas Topológicas por Ramal")
+            st.dataframe(
+                df_rutas.style.format({
+                    "ΔZ Estático (m)": "{:.2f}",
+                    "Σ hf (m)": "{:.3f}",
+                    "Σ hm (m)": "{:.3f}",
+                    "Pérdida Total (m)": "{:.3f}",
+                    "Presión Mín. Requerida (m.c.a.)": "{:.2f}",
+                    "CDT Requerida (m.c.a.)": "{:.2f}"
+                }).highlight_max(subset=["CDT Requerida (m.c.a.)"], color="#FCA5A5", axis=0),
+                use_container_width=True
+            )
+
+            st.success("✅ Análisis de rutas múltiples completado. Procede a la Pestaña 4 para dimensionar la bomba basándose en esta CDT.")
 
 # ------------------------------------------------------------------------------
 # PESTAÑA 4: EQUIPO DE BOMBEO Y GRÁFICOS INTERACTIVOS (MÓDULO 4)
