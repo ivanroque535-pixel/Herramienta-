@@ -101,36 +101,40 @@ with tab1:
     eps_default = 0.0015 if "CPVC" in material_predeterminado else 0.15
     c_default = 150 if "CPVC" in material_predeterminado else 120
 
-    # --- BOTÓN PARA LIMPIAR TABLA ---
+    # 1. BOTÓN DE LIMPIEZA Y TÍTULO (Sin texto duplicado)
     col_tit, col_limpiar = st.columns([4, 1])
     with col_tit:
         st.markdown("### 🛠️ Tabla de Configuración de Tramos (Desde / Hasta)")
-        st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble.")
+        st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble. El sistema acumulará las UM hacia atrás (aguas abajo) automáticamente para los tramos principales.")
     
     with col_limpiar:
         if st.button("🗑️ Limpiar Tabla", type="primary", use_container_width=True):
-            # Reiniciamos la tabla con la estructura vacía
+            # Reiniciamos la variable de estado con las columnas vacías
             st.session_state["datos_red"] = pd.DataFrame(columns=[
                 "Desde", "Hasta", "L_m", "DN_mm", "UM_Terminales", "Q_directo_Lps", "Acc_K_total", "Desnivel_m"
             ])
-            st.rerun() # Forzamos recarga para que el st.data_editor se blanquee
-    # --------------------------------
-    st.caption("Introduce las **UM Terminales** solo en los nodos que conectan directamente a un mueble. El sistema acumulará las UM hacia atrás (aguas abajo) automáticamente para los tramos principales.")
+            # Borramos la caché del widget para forzar el blanqueo visual
+            if "editor_tramos" in st.session_state:
+                del st.session_state["editor_tramos"]
+            st.rerun()
 
-    # Precarga basada en tu lógica de ramificación
-    datos_iniciales = pd.DataFrame([
-        {"Desde": "A", "Hasta": "B", "L_m": 2.07, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 0.98, "Desnivel_m": 5.20},
-        {"Desde": "B", "Hasta": "Calentador", "L_m": 1.29, "DN_mm": 38.1, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.46, "Desnivel_m": 0.00},
-        {"Desde": "B", "Hasta": "C", "L_m": 4.44, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 2.88, "Desnivel_m": 0.00},
-        {"Desde": "C", "Hasta": "D", "L_m": 1.36, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.63, "Desnivel_m": 0.00},
-        {"Desde": "D", "Hasta": "Lavadora", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00},
-        {"Desde": "D", "Hasta": "E", "L_m": 0.23, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.45, "Desnivel_m": 0.00},
-        {"Desde": "E", "Hasta": "Lavadero", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00}
-    ])
+    # 2. INICIALIZACIÓN EN LA MEMORIA (Solo se carga si no existe)
+    if "datos_red" not in st.session_state:
+        st.session_state["datos_red"] = pd.DataFrame([
+            {"Desde": "A", "Hasta": "B", "L_m": 2.07, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 0.98, "Desnivel_m": 5.20},
+            {"Desde": "B", "Hasta": "Calentador", "L_m": 1.29, "DN_mm": 38.1, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.46, "Desnivel_m": 0.00},
+            {"Desde": "B", "Hasta": "C", "L_m": 4.44, "DN_mm": 38.1, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 2.88, "Desnivel_m": 0.00},
+            {"Desde": "C", "Hasta": "D", "L_m": 1.36, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.63, "Desnivel_m": 0.00},
+            {"Desde": "D", "Hasta": "Lavadora", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00},
+            {"Desde": "D", "Hasta": "E", "L_m": 0.23, "DN_mm": 25.4, "UM_Terminales": 0, "Q_directo_Lps": 0.0, "Acc_K_total": 1.45, "Desnivel_m": 0.00},
+            {"Desde": "E", "Hasta": "Lavadero", "L_m": 0.80, "DN_mm": 12.7, "UM_Terminales": 1, "Q_directo_Lps": 0.0, "Acc_K_total": 0.12, "Desnivel_m": 0.00}
+        ])
 
+    # 3. EDITOR DE DATOS (Ahora conectado a la memoria correctamente)
     df_tramos = st.data_editor(
-        datos_iniciales,
+        st.session_state["datos_red"],
         num_rows="dynamic",
+        key="editor_tramos",
         use_container_width=True,
         column_config={
             "Desde": st.column_config.TextColumn("Nodo Inicio (Desde)", required=True),
@@ -143,10 +147,13 @@ with tab1:
             "Desnivel_m": st.column_config.NumberColumn("ΔZ Topográfico (m)", format="%.2f")
         }
     )
+    
+    # 4. ACTUALIZAR ESTADO (Mantiene tus cambios si agregas filas)
+    st.session_state["datos_red"] = df_tramos
 
     # --------------------------------------------------------------------------
     # LÓGICA TOPOLÓGICA (ACUMULACIÓN DE MUEBLES AGUAS ABAJO)
-    # --------------------------------------------------------------------------
+    # (El código continúa aquí abajo con "adj = {}" como lo tenías antes...)
     adj = {}
     um_directas = {}
     
