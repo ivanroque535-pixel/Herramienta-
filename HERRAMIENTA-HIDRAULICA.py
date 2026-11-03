@@ -421,6 +421,10 @@ with st.sidebar:
     
     st.caption(f"**Densidad (ρ):** {rho_agua:.2f} kg/m³")
     st.caption(f"**Viscosidad (ν):** {nu_agua*1e6:.4f} ×10⁻⁶ m²/s")
+
+    desnivel_topografico = st.number_input(
+        "Desnivel topográfico total ΔZ (m)", min_value=0.0, value=5.20, step=0.10
+    )
     
     st.divider()
     st.subheader("2. Criterios Operativos")
@@ -589,26 +593,38 @@ with tab5:
 # ------------------------------------------------------------------------------
 # PESTAÑA 6: MEMORIA DE CÁLCULO Y AUDITORÍA DE IA
 # ------------------------------------------------------------------------------
-with tab6:
+with tab6:  # O tab5 según el número de tu última pestaña
     st.header("📄 Módulo 6: Memoria Técnica y Bitácora Auditora")
-    if "info_critica" in st.session_state and st.session_state["info_critica"]:
+
+    if (
+        "info_critica" in st.session_state
+        and st.session_state["info_critica"]
+        and "df_hidraulica" in st.session_state
+    ):
         st.subheader("📑 Memoria Ejecutiva de Cálculo Hidráulico")
-        
-        # Generar buffer del Excel en memoria
+
+        # Asegurar valor por defecto si desnivel_topografico no se declaró arriba
+        desnivel_val = (
+            desnivel_topografico
+            if "desnivel_topografico" in locals()
+            or "desnivel_topografico" in globals()
+            else 5.20
+        )
+
+        # Generar buffer binario de la Hoja de Cálculo Excel
         excel_buffer = generar_excel_memoria_calculo(
             st.session_state["df_hidraulica"],
             st.session_state["info_critica"],
             temp_agua,
             p_min_requerida,
-            desnivel_topografico
+            desnivel_val,
         )
-        
-        # Botón de descarga en Excel (.xlsx)
+
         st.download_button(
-            label="📊 Descargar Memoria de Cálculo Completa en Excel (.xlsx)",
+            label="📊 Descargar Memoria Ejecutiva Completa en Excel (.xlsx)",
             data=excel_buffer,
             file_name="Memoria_Calculo_Hidraulico_UAA.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         
         st.divider()
